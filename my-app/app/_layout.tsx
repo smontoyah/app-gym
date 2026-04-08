@@ -1,8 +1,10 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
@@ -19,6 +21,13 @@ function RootNavigator() {
       SplashScreen.hideAsync();
     }
   }, [isLoading]);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(isDark ? '#0f0f0f' : '#f5f5f5');
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+    }
+  }, [isDark]);
 
   if (isLoading) return null;
 

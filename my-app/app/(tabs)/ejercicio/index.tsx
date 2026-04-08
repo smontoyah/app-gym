@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
@@ -70,6 +70,17 @@ export default function WorkoutScreen() {
     });
   };
 
+  const sortedExercises = useMemo(() => {
+    const indexed = exercises.map((ex, i) => ({ exercise: ex, originalIndex: i }));
+    indexed.sort((a, b) => {
+      const aDone = a.exercise.sets_data.length > 0 && a.exercise.sets_data.every(s => s.saved);
+      const bDone = b.exercise.sets_data.length > 0 && b.exercise.sets_data.every(s => s.saved);
+      if (aDone === bDone) return 0;
+      return aDone ? 1 : -1;
+    });
+    return indexed;
+  }, [exercises]);
+
   if (loading) {
     return (
       <View style={s.center}>
@@ -92,15 +103,15 @@ export default function WorkoutScreen() {
     <FlatList
       style={s.container}
       contentContainerStyle={s.content}
-      data={exercises}
-      keyExtractor={(item) => item.id}
+      data={sortedExercises}
+      keyExtractor={(item) => item.exercise.id}
       ListHeaderComponent={
         <Text style={s.dateHeader}>{DAY_NAMES[dayOfWeek]} — {dateStr}</Text>
       }
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <ExerciseCard
-          exercise={item}
-          exerciseIndex={index}
+          exercise={item.exercise}
+          exerciseIndex={item.originalIndex}
           onSetValueChange={updateSetValue}
           onSaveSet={handleSaveSet}
         />
