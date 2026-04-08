@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchExerciseStats } from '@/features/stats/actions';
-import { StatCard } from '@/features/stats/components/stat-card';
-import type { ExerciseStat } from '@/features/stats/types';
+import { fetchExerciseStats } from './_lib/actions';
+import { StatCard } from './_components/stat-card';
+import type { ExerciseStat } from './_lib/types';
 
 export default function StatsScreen() {
   const [stats, setStats] = useState<ExerciseStat[]>([]);

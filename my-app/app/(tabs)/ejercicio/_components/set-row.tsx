@@ -1,5 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import type { SetLog } from '../types';
+import type { SetLog } from '../_lib/types';
 
 type SetRowProps = {
   set: SetLog;

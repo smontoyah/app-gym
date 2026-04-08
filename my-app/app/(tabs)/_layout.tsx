@@ -17,7 +17,7 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
-        name="workout"
+        name="ejercicio"
         options={{
           title: 'Ejercicio',
           tabBarIcon: ({ color }) => (
@@ -26,7 +26,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="config"
+        name="configuracion"
         options={{
           title: 'Rutinas',
           tabBarIcon: ({ color }) => (
@@ -35,7 +35,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="stats"
+        name="estadisticas"
         options={{
           title: 'Estadísticas',
           tabBarIcon: ({ color }) => (

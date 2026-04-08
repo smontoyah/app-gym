@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import type { ExerciseStat } from '../types';
+import type { ExerciseStat } from '../_lib/types';
 
 type StatCardProps = {
   stat: ExerciseStat;

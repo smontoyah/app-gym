@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { SetRow } from './set-row';
-import type { ExerciseWithSets } from '../types';
+import type { ExerciseWithSets } from '../_lib/types';
 
 type ExerciseCardProps = {
   exercise: ExerciseWithSets;

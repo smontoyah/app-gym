@@ -14,10 +14,10 @@ import {
   addExerciseToRoutine,
   updateRoutineSets,
   deleteRoutineEntry,
-} from '@/features/config/actions';
-import { DaySelector, DAYS } from '@/features/config/components/day-selector';
-import { RoutineCard } from '@/features/config/components/routine-card';
-import { ExerciseForm } from '@/features/config/components/exercise-form';
+} from './_lib/actions';
+import { DaySelector, DAYS } from './_components/day-selector';
+import { RoutineCard } from './_components/routine-card';
+import { ExerciseForm } from './_components/exercise-form';
 import type { Exercise, RoutineWithExercise } from '@/types/database';
 
 export default function ConfigScreen() {

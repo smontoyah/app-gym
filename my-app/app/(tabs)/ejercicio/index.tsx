@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { fetchTodayWorkout, saveWorkoutSet } from '@/features/workout/actions';
-import { ExerciseCard } from '@/features/workout/components/exercise-card';
-import type { ExerciseWithSets } from '@/features/workout/types';
+import { fetchTodayWorkout, saveWorkoutSet } from './_lib/actions';
+import { ExerciseCard } from './_components/exercise-card';
+import type { ExerciseWithSets } from './_lib/types';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
