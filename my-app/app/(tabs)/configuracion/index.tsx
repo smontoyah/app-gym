@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -56,37 +56,81 @@ export default function ConfigScreen() {
     ]);
   };
 
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
   const availableExercises = exercises.filter((e) => !routines.some((r) => r.exercise_id === e.id));
+  const muscleGroups = [...new Set(availableExercises.map((e) => e.muscle_group))].sort();
+  const filteredExercises = muscleFilter
+    ? availableExercises.filter((e) => e.muscle_group === muscleFilter)
+    : availableExercises;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => { onShow.remove(); onHide.remove(); };
+  }, []);
+
+  const scrollToEnd = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+  };
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} />
-      <Text style={s.sectionTitle}>Rutina del {DAYS[selectedDay]}</Text>
+    <ScrollView
+      ref={scrollRef}
+      style={s.container}
+      contentContainerStyle={[s.content, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
+      keyboardShouldPersistTaps="handled"
+    >
+        <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+        <Text style={s.sectionTitle}>Rutina del {DAYS[selectedDay]}</Text>
 
-      {routines.length === 0 && !loading && (
-        <Text style={s.emptyText}>No hay ejercicios para este día</Text>
-      )}
-      {routines.map((r) => (
-        <RoutineCard key={r.id} routine={r} onUpdateSets={handleUpdateSets} onRemove={handleRemove} />
-      ))}
+        {routines.length === 0 && !loading && (
+          <Text style={s.emptyText}>No hay ejercicios para este día</Text>
+        )}
+        {routines.map((r) => (
+          <RoutineCard key={r.id} routine={r} onUpdateSets={handleUpdateSets} onRemove={handleRemove} />
+        ))}
 
-      <Text style={[s.sectionTitle, { marginTop: 24 }]}>Agregar ejercicio</Text>
-      {availableExercises.map((e) => (
-        <TouchableOpacity key={e.id} style={s.addCard} onPress={() => handleAddToRoutine(e.id)}>
-          <View>
-            <Text style={s.addCardName}>{e.name}</Text>
-            <Text style={s.addCardMuscle}>{e.muscle_group}</Text>
-          </View>
-          <Text style={s.addIcon}>+</Text>
-        </TouchableOpacity>
-      ))}
+        <Text style={[s.sectionTitle, { marginTop: 24 }]}>Agregar ejercicio</Text>
+        {muscleGroups.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterRow} contentContainerStyle={s.filterContent}>
+            <TouchableOpacity
+              style={[s.filterChip, !muscleFilter && s.filterChipActive]}
+              onPress={() => setMuscleFilter(null)}
+            >
+              <Text style={[s.filterChipText, !muscleFilter && s.filterChipTextActive]}>Todos</Text>
+            </TouchableOpacity>
+            {muscleGroups.map((group) => (
+              <TouchableOpacity
+                key={group}
+                style={[s.filterChip, muscleFilter === group && s.filterChipActive]}
+                onPress={() => setMuscleFilter(muscleFilter === group ? null : group)}
+              >
+                <Text style={[s.filterChipText, muscleFilter === group && s.filterChipTextActive]}>{group}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+        {filteredExercises.map((e) => (
+          <TouchableOpacity key={e.id} style={s.addCard} onPress={() => handleAddToRoutine(e.id)}>
+            <View>
+              <Text style={s.addCardName}>{e.name}</Text>
+              <Text style={s.addCardMuscle}>{e.muscle_group}</Text>
+            </View>
+            <Text style={s.addIcon}>+</Text>
+          </TouchableOpacity>
+        ))}
 
-      <ExerciseForm
-        visible={showAddExercise}
-        onToggle={() => setShowAddExercise(!showAddExercise)}
-        onSubmit={handleCreateExercise}
-      />
-    </ScrollView>
+        <ExerciseForm
+          visible={showAddExercise}
+          onToggle={() => setShowAddExercise(!showAddExercise)}
+          onSubmit={handleCreateExercise}
+          onInputFocus={scrollToEnd}
+        />
+      </ScrollView>
   );
 }
 
@@ -96,6 +140,12 @@ const createStyles = (c: AppColorScheme) =>
     content: { padding: 16, paddingBottom: 40 },
     sectionTitle: { color: c.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
     emptyText: { color: c.textMuted, fontSize: 14, marginBottom: 16 },
+    filterRow: { marginBottom: 12, flexGrow: 0 },
+    filterContent: { gap: 8 },
+    filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: c.surfaceSecondary },
+    filterChipActive: { backgroundColor: c.accent },
+    filterChipText: { color: c.textSecondary, fontSize: 13, fontWeight: '600' },
+    filterChipTextActive: { color: c.accentText },
     addCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.surface, borderRadius: 12, padding: 14, marginBottom: 8 },
     addCardName: { color: c.text, fontSize: 15 },
     addCardMuscle: { color: c.textMuted, fontSize: 12, marginTop: 2 },

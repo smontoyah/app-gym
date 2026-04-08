@@ -1,25 +1,61 @@
-import { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
+
+const MUSCLE_GROUPS = [
+  'Pecho',
+  'Espalda',
+  'Hombros',
+  'Bíceps',
+  'Tríceps',
+  'Antebrazos',
+  'Cuádriceps',
+  'Femorales',
+  'Glúteos',
+  'Pantorrillas',
+  'Aductores',
+  'Abdominales',
+  'Oblicuos',
+  'Trapecio',
+];
 
 type ExerciseFormProps = {
   visible: boolean;
   onToggle: () => void;
   onSubmit: (name: string, muscleGroup: string) => void;
+  onInputFocus?: () => void;
 };
 
-export function ExerciseForm({ visible, onToggle, onSubmit }: ExerciseFormProps) {
+export function ExerciseForm({ visible, onToggle, onSubmit, onInputFocus }: ExerciseFormProps) {
   const { colors } = useTheme();
   const s = createStyles(colors);
   const [name, setName] = useState('');
   const [muscle, setMuscle] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!muscle.trim()) return MUSCLE_GROUPS;
+    const q = muscle.toLowerCase();
+    return MUSCLE_GROUPS.filter((g) => g.toLowerCase().includes(q));
+  }, [muscle]);
+
+  const handleMuscleChange = (text: string) => {
+    setMuscle(text);
+    setDropdownOpen(true);
+  };
+
+  const handleSelectMuscle = (group: string) => {
+    setMuscle(group);
+    setDropdownOpen(false);
+  };
 
   const handleSubmit = () => {
     if (!name.trim()) return;
     onSubmit(name, muscle);
     setName('');
     setMuscle('');
+    setDropdownOpen(false);
   };
 
   if (!visible) {
@@ -32,8 +68,26 @@ export function ExerciseForm({ visible, onToggle, onSubmit }: ExerciseFormProps)
 
   return (
     <View style={s.form}>
-      <TextInput style={s.input} placeholder="Nombre del ejercicio" placeholderTextColor={colors.textMuted} value={name} onChangeText={setName} />
-      <TextInput style={s.input} placeholder="Grupo muscular (ej: Pecho, Espalda)" placeholderTextColor={colors.textMuted} value={muscle} onChangeText={setMuscle} />
+      <TextInput style={s.input} placeholder="Nombre del ejercicio" placeholderTextColor={colors.textMuted} value={name} onChangeText={setName} onFocus={onInputFocus} />
+      <View>
+        <TextInput
+          style={s.input}
+          placeholder="Grupo muscular"
+          placeholderTextColor={colors.textMuted}
+          value={muscle}
+          onChangeText={handleMuscleChange}
+          onFocus={() => { setDropdownOpen(true); onInputFocus?.(); }}
+        />
+        {dropdownOpen && filtered.length > 0 && (
+          <ScrollView style={s.dropdown} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {filtered.map((group) => (
+              <TouchableOpacity key={group} style={s.dropdownItem} onPress={() => handleSelectMuscle(group)}>
+                <Text style={s.dropdownText}>{group}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
       <View style={s.buttons}>
         <TouchableOpacity style={s.cancelBtn} onPress={onToggle}>
           <Text style={s.cancelText}>Cancelar</Text>
@@ -52,6 +106,9 @@ const createStyles = (c: AppColorScheme) =>
     toggleText: { color: c.accent, fontSize: 15, fontWeight: '600' },
     form: { backgroundColor: c.surface, borderRadius: 12, padding: 16, marginTop: 8 },
     input: { backgroundColor: c.surfaceSecondary, borderRadius: 8, color: c.text, fontSize: 15, padding: 12, marginBottom: 10 },
+    dropdown: { maxHeight: 150, backgroundColor: c.surfaceSecondary, borderRadius: 8, marginTop: -6, marginBottom: 10 },
+    dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+    dropdownText: { color: c.text, fontSize: 15 },
     buttons: { flexDirection: 'row', gap: 10, marginTop: 4 },
     cancelBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: c.surfaceSecondary, alignItems: 'center' },
     cancelText: { color: c.textSecondary, fontWeight: '600' },

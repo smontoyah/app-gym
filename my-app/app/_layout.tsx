@@ -24,7 +24,6 @@ function RootNavigator() {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(isDark ? '#0f0f0f' : '#f5f5f5');
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
     }
   }, [isDark]);
