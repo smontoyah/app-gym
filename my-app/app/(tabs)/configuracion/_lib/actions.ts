@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/auth-helpers';
 import type { Exercise, RoutineWithExercise } from '@/types/database';
 
 export async function fetchRoutinesAndExercises(dayOfWeek: number): Promise<{
@@ -33,9 +34,11 @@ export async function createExercise(
   name: string,
   muscleGroup: string
 ): Promise<{ success: boolean; error: string | null }> {
+  const userId = await getUserId();
+
   const { error } = await supabase
     .from('exercises')
-    .insert({ name: name.trim(), muscle_group: muscleGroup.trim() || 'General' });
+    .insert({ user_id: userId, name: name.trim(), muscle_group: muscleGroup.trim() || 'General' });
 
   if (error) return { success: false, error: error.message };
   return { success: true, error: null };
@@ -46,7 +49,10 @@ export async function addExerciseToRoutine(params: {
   exerciseId: string;
   currentCount: number;
 }): Promise<{ success: boolean; error: string | null }> {
+  const userId = await getUserId();
+
   const { error } = await supabase.from('routines').insert({
+    user_id: userId,
     day_of_week: params.dayOfWeek,
     exercise_id: params.exerciseId,
     sets: 3,

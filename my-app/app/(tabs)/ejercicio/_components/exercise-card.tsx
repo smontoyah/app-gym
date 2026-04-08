@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
 import { SetRow } from './set-row';
 import type { ExerciseWithSets } from '../_lib/types';
+import type { AppColorScheme } from '@/constants/theme';
 
 type ExerciseCardProps = {
   exercise: ExerciseWithSets;
@@ -11,31 +13,24 @@ type ExerciseCardProps = {
     field: 'reps' | 'weight',
     value: string
   ) => void;
-  onSaveSet: (
-    exerciseId: string,
-    setNumber: number,
-    reps: string,
-    weight: string
-  ) => void;
+  onSaveSet: (exerciseId: string, setNumber: number, reps: string, weight: string) => void;
 };
 
-export function ExerciseCard({
-  exercise,
-  exerciseIndex,
-  onSetValueChange,
-  onSaveSet,
-}: ExerciseCardProps) {
+export function ExerciseCard({ exercise, exerciseIndex, onSetValueChange, onSaveSet }: ExerciseCardProps) {
+  const { colors } = useTheme();
+  const s = createStyles(colors);
+
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Text style={styles.name}>{exercise.exercises.name}</Text>
-        <Text style={styles.muscle}>{exercise.exercises.muscle_group}</Text>
+    <View style={s.card}>
+      <View style={s.header}>
+        <Text style={s.name}>{exercise.exercises.name}</Text>
+        <Text style={s.muscle}>{exercise.exercises.muscle_group}</Text>
       </View>
-      <View style={styles.setsHeader}>
-        <Text style={styles.label}>Serie</Text>
-        <Text style={styles.label}>Reps</Text>
-        <Text style={styles.label}>Peso (kg)</Text>
-        <Text style={styles.label} />
+      <View style={s.setsHeader}>
+        <Text style={s.label}>Serie</Text>
+        <Text style={s.label}>Reps</Text>
+        <Text style={s.label}>Peso (kg)</Text>
+        <Text style={s.label} />
       </View>
       {exercise.sets_data.map((set, setIndex) => (
         <SetRow
@@ -52,21 +47,12 @@ export function ExerciseCard({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  header: { marginBottom: 12 },
-  name: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  muscle: { color: '#0a7ea4', fontSize: 13, marginTop: 2 },
-  setsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  label: { flex: 1, color: '#666', fontSize: 12, textAlign: 'center' },
-});
+const createStyles = (c: AppColorScheme) =>
+  StyleSheet.create({
+    card: { backgroundColor: c.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
+    header: { marginBottom: 12 },
+    name: { color: c.text, fontSize: 18, fontWeight: '700' },
+    muscle: { color: c.accent, fontSize: 13, marginTop: 2 },
+    setsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
+    label: { flex: 1, color: c.textMuted, fontSize: 12, textAlign: 'center' },
+  });

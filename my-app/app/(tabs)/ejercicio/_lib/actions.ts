@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/auth-helpers';
 import type { RoutineWithExercise } from '@/types/database';
 import type { ExerciseWithSets, SetLog } from './types';
 
@@ -53,8 +54,11 @@ export async function saveWorkoutSet(params: {
 
   if (!reps || !weight) return { success: false, error: 'Faltan datos' };
 
+  const userId = await getUserId();
+
   const { error } = await supabase.from('workout_logs').upsert(
     {
+      user_id: userId,
       exercise_id: exerciseId,
       workout_date: dateStr,
       set_number: setNumber,

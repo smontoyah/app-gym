@@ -1,5 +1,6 @@
 export type Exercise = {
   id: string;
+  user_id: string;
   name: string;
   muscle_group: string;
   created_at: string;
@@ -7,6 +8,7 @@ export type Exercise = {
 
 export type Routine = {
   id: string;
+  user_id: string;
   day_of_week: number;
   exercise_id: string;
   sets: number;
@@ -16,6 +18,7 @@ export type Routine = {
 
 export type WorkoutLog = {
   id: string;
+  user_id: string;
   exercise_id: string;
   workout_date: string;
   set_number: number;
@@ -35,12 +38,14 @@ export type Database = {
         Row: Exercise;
         Insert: {
           id?: string;
+          user_id: string;
           name: string;
           muscle_group: string;
           created_at?: string;
         };
         Update: {
           id?: string;
+          user_id?: string;
           name?: string;
           muscle_group?: string;
           created_at?: string;
@@ -51,6 +56,7 @@ export type Database = {
         Row: Routine;
         Insert: {
           id?: string;
+          user_id: string;
           day_of_week: number;
           exercise_id: string;
           sets?: number;
@@ -59,6 +65,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          user_id?: string;
           day_of_week?: number;
           exercise_id?: string;
           sets?: number;
@@ -79,6 +86,7 @@ export type Database = {
         Row: WorkoutLog;
         Insert: {
           id?: string;
+          user_id: string;
           exercise_id: string;
           workout_date?: string;
           set_number: number;
@@ -88,6 +96,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          user_id?: string;
           exercise_id?: string;
           workout_date?: string;
           set_number?: number;

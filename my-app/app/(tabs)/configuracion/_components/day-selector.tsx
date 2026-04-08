@@ -1,4 +1,6 @@
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
+import type { AppColorScheme } from '@/constants/theme';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -8,14 +10,17 @@ type DaySelectorProps = {
 };
 
 export function DaySelector({ selectedDay, onSelectDay }: DaySelectorProps) {
+  const { colors } = useTheme();
+  const s = createStyles(colors);
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.row}>
       {DAYS.map((day, i) => (
         <TouchableOpacity
           key={i}
-          style={[styles.chip, selectedDay === i && styles.chipActive]}
+          style={[s.chip, selectedDay === i && s.chipActive]}
           onPress={() => onSelectDay(i)}>
-          <Text style={[styles.text, selectedDay === i && styles.textActive]}>
+          <Text style={[s.text, selectedDay === i && s.textActive]}>
             {day.substring(0, 3)}
           </Text>
         </TouchableOpacity>
@@ -26,16 +31,11 @@ export function DaySelector({ selectedDay, onSelectDay }: DaySelectorProps) {
 
 export { DAYS };
 
-const styles = StyleSheet.create({
-  row: { marginBottom: 20, flexGrow: 0 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#1a1a1a',
-    marginRight: 8,
-  },
-  chipActive: { backgroundColor: '#0a7ea4' },
-  text: { color: '#888', fontSize: 14, fontWeight: '600' },
-  textActive: { color: '#fff' },
-});
+const createStyles = (c: AppColorScheme) =>
+  StyleSheet.create({
+    row: { marginBottom: 20, flexGrow: 0 },
+    chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: c.surface, marginRight: 8 },
+    chipActive: { backgroundColor: c.accent },
+    text: { color: c.textSecondary, fontSize: 14, fontWeight: '600' },
+    textActive: { color: c.accentText },
+  });
