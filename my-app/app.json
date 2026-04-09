@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -50,6 +50,12 @@
         "projectId": "2b6ce1bf-9126-4894-9220-cddbcada8b3f"
       }
     },
-    "owner": "cosmosebas"
+    "owner": "cosmosebas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2b6ce1bf-9126-4894-9220-cddbcada8b3f"
+    }
   }
 }
