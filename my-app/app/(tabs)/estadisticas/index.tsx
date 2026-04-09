@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState, useCallback, useMemo } from 'react';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchExerciseStats } from './_lib/actions';
@@ -9,7 +9,7 @@ import type { AppColorScheme } from '@/constants/theme';
 
 export default function StatsScreen() {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [stats, setStats] = useState<ExerciseStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -24,6 +24,10 @@ export default function StatsScreen() {
       })();
     }, [])
   );
+
+  const handleToggle = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }, []);
 
   if (loading) {
     return (
@@ -44,16 +48,19 @@ export default function StatsScreen() {
   }
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-      {stats.map((stat) => (
+    <FlatList
+      style={s.container}
+      contentContainerStyle={s.content}
+      data={stats}
+      keyExtractor={(item) => item.exercise.id}
+      renderItem={({ item }) => (
         <StatCard
-          key={stat.exercise.id}
-          stat={stat}
-          isExpanded={expandedId === stat.exercise.id}
-          onToggle={() => setExpandedId(expandedId === stat.exercise.id ? null : stat.exercise.id)}
+          stat={item}
+          isExpanded={expandedId === item.exercise.id}
+          onToggle={() => handleToggle(item.exercise.id)}
         />
-      ))}
-    </ScrollView>
+      )}
+    />
   );
 }
 

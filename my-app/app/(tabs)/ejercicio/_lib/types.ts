@@ -5,6 +5,8 @@ export type SetLog = {
   reps: string;
   weight: string;
   saved: boolean;
+  previousReps?: string;
+  previousWeight?: string;
 };
 
 export type ExerciseWithSets = RoutineWithExercise & {

@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { SetLog } from '../_lib/types';
@@ -12,11 +13,12 @@ type SetRowProps = {
   onSave: (exerciseId: string, setNumber: number, reps: string, weight: string) => void;
 };
 
-export function SetRow({ set, setIndex, exerciseIndex, exerciseId, onValueChange, onSave }: SetRowProps) {
+export const SetRow = memo(function SetRow({ set, setIndex, exerciseIndex, exerciseId, onValueChange, onSave }: SetRowProps) {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   return (
+    <>
     <View style={s.row}>
       <Text style={s.setNumber}>{set.set_number}</Text>
       <TextInput
@@ -41,8 +43,14 @@ export function SetRow({ set, setIndex, exerciseIndex, exerciseId, onValueChange
         <Text style={s.saveBtnText}>{set.saved ? '✓' : '→'}</Text>
       </TouchableOpacity>
     </View>
+    {set.previousWeight && !set.saved && (
+      <Text style={s.previousLabel}>
+        anterior: {set.previousWeight}kg × {set.previousReps ?? '?'}
+      </Text>
+    )}
+    </>
   );
-}
+});
 
 const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
@@ -53,4 +61,5 @@ const createStyles = (c: AppColorScheme) =>
     saveBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, justifyContent: 'center', alignItems: 'center' },
     saveBtnDone: { backgroundColor: c.success },
     saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    previousLabel: { color: c.textMuted, fontSize: 11, textAlign: 'center', marginTop: -4, marginBottom: 4 },
   });

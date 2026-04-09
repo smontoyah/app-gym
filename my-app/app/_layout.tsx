@@ -3,7 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import * as SystemUI from 'expo-system-ui';
+import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
@@ -14,7 +15,20 @@ SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const { isLoggedIn, isLoading } = useAuth();
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
+
+  const navTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        background: colors.background,
+        card: colors.tabBar,
+        border: colors.tabBarBorder,
+      },
+    };
+  }, [isDark, colors]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -23,15 +37,16 @@ function RootNavigator() {
   }, [isLoading]);
 
   useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background);
     if (Platform.OS === 'android') {
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
     }
-  }, [isDark]);
+  }, [isDark, colors.background]);
 
   if (isLoading) return null;
 
   return (
-    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={navTheme}>
       <Stack>
         <Stack.Protected guard={isLoggedIn}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

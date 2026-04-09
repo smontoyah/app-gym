@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
@@ -9,9 +10,9 @@ type DaySelectorProps = {
   onSelectDay: (day: number) => void;
 };
 
-export function DaySelector({ selectedDay, onSelectDay }: DaySelectorProps) {
+export const DaySelector = memo(function DaySelector({ selectedDay, onSelectDay }: DaySelectorProps) {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.row}>
@@ -27,7 +28,7 @@ export function DaySelector({ selectedDay, onSelectDay }: DaySelectorProps) {
       ))}
     </ScrollView>
   );
-}
+});
 
 export { DAYS };
 

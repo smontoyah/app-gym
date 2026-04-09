@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { memo, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { SetRow } from './set-row';
 import type { ExerciseWithSets } from '../_lib/types';
@@ -14,11 +15,17 @@ type ExerciseCardProps = {
     value: string
   ) => void;
   onSaveSet: (exerciseId: string, setNumber: number, reps: string, weight: string) => void;
+  onSaveAllSets: (exerciseId: string, sets: { setNumber: number; reps: string; weight: string }[]) => void;
 };
 
-export function ExerciseCard({ exercise, exerciseIndex, onSetValueChange, onSaveSet }: ExerciseCardProps) {
+export const ExerciseCard = memo(function ExerciseCard({ exercise, exerciseIndex, onSetValueChange, onSaveSet, onSaveAllSets }: ExerciseCardProps) {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
+
+  const unsavedWithData = useMemo(
+    () => exercise.sets_data.filter((st) => !st.saved && st.reps !== '' && st.weight !== ''),
+    [exercise.sets_data]
+  );
 
   return (
     <View style={s.card}>
@@ -43,9 +50,26 @@ export function ExerciseCard({ exercise, exerciseIndex, onSetValueChange, onSave
           onSave={onSaveSet}
         />
       ))}
+      {unsavedWithData.length > 0 && (
+        <TouchableOpacity
+          style={s.saveAllBtn}
+          onPress={() =>
+            onSaveAllSets(
+              exercise.exercise_id,
+              unsavedWithData.map((st) => ({
+                setNumber: st.set_number,
+                reps: st.reps,
+                weight: st.weight,
+              }))
+            )
+          }
+        >
+          <Text style={s.saveAllText}>Guardar todas ({unsavedWithData.length})</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
-}
+});
 
 const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
@@ -55,4 +79,6 @@ const createStyles = (c: AppColorScheme) =>
     muscle: { color: c.accent, fontSize: 13, marginTop: 2 },
     setsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 },
     label: { flex: 1, color: c.textMuted, fontSize: 12, textAlign: 'center' },
+    saveAllBtn: { marginTop: 8, backgroundColor: c.accent, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+    saveAllText: { color: c.accentText, fontSize: 14, fontWeight: '700' },
   });

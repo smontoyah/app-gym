@@ -5,56 +5,75 @@ export async function fetchExerciseStats(): Promise<{
   data: ExerciseStat[];
   error: string | null;
 }> {
-  const { data: exercises, error: exError } = await supabase
-    .from('exercises')
-    .select('*')
-    .order('name');
+  // Fetch exercises and logs in parallel
+  const [exRes, logsRes] = await Promise.all([
+    supabase.from('exercises').select('*').order('name'),
+    supabase.from('workout_logs').select('*').order('workout_date', { ascending: false }).limit(500),
+  ]);
 
-  if (exError) return { data: [], error: exError.message };
-  if (!exercises || exercises.length === 0) return { data: [], error: null };
+  if (exRes.error) return { data: [], error: exRes.error.message };
+  if (!exRes.data || exRes.data.length === 0) return { data: [], error: null };
+  if (logsRes.error) return { data: [], error: logsRes.error.message };
 
-  const { data: logs, error: logsError } = await supabase
-    .from('workout_logs')
-    .select('*')
-    .order('workout_date', { ascending: false });
+  // Index logs by exercise_id in a single pass (O(n))
+  const logsByExercise = new Map<string, typeof logsRes.data>();
+  for (const log of logsRes.data || []) {
+    const existing = logsByExercise.get(log.exercise_id);
+    if (existing) {
+      existing.push(log);
+    } else {
+      logsByExercise.set(log.exercise_id, [log]);
+    }
+  }
 
-  if (logsError) return { data: [], error: logsError.message };
+  const stats: ExerciseStat[] = [];
 
-  const stats: ExerciseStat[] = exercises
-    .map((exercise) => {
-      const exerciseLogs = (logs || []).filter(
-        (l) => l.exercise_id === exercise.id
-      );
+  for (const exercise of exRes.data) {
+    const exerciseLogs = logsByExercise.get(exercise.id);
+    if (!exerciseLogs || exerciseLogs.length === 0) continue;
 
-      if (exerciseLogs.length === 0) return null;
+    let maxWeight = 0;
+    const dateSet = new Set<string>();
 
-      const dates = [...new Set(exerciseLogs.map((l) => l.workout_date))];
-      const maxWeight = Math.max(...exerciseLogs.map((l) => Number(l.weight)));
-      const lastDate = dates[0];
-      const lastLogs = exerciseLogs.filter((l) => l.workout_date === lastDate);
-      const lastWeight = Math.max(...lastLogs.map((l) => Number(l.weight)));
+    for (const l of exerciseLogs) {
+      const w = Number(l.weight);
+      if (w > maxWeight) maxWeight = w;
+      dateSet.add(l.workout_date);
+    }
 
-      const recentLogs = dates.slice(0, 10).map((date) => {
-        const dayLogs = exerciseLogs.filter((l) => l.workout_date === date);
-        const bestSet = dayLogs.reduce((best, l) =>
-          Number(l.weight) > Number(best.weight) ? l : best
-        );
-        return {
-          date,
-          weight: Number(bestSet.weight),
-          reps: bestSet.reps,
-        };
-      });
+    // Dates are already sorted desc from the query
+    const dates = [...dateSet];
+    const lastDate = dates[0];
+    let lastWeight = 0;
+    for (const l of exerciseLogs) {
+      if (l.workout_date !== lastDate) break;
+      const w = Number(l.weight);
+      if (w > lastWeight) lastWeight = w;
+    }
 
-      return {
-        exercise,
-        lastWeight,
-        maxWeight,
-        totalSessions: dates.length,
-        recentLogs,
-      };
-    })
-    .filter(Boolean) as ExerciseStat[];
+    // Build recent logs — best set per date for last 10 sessions
+    const recentLogs = dates.slice(0, 10).map((date) => {
+      let bestWeight = 0;
+      let bestReps = 0;
+      for (const l of exerciseLogs) {
+        if (l.workout_date !== date) continue;
+        const w = Number(l.weight);
+        if (w > bestWeight) {
+          bestWeight = w;
+          bestReps = l.reps;
+        }
+      }
+      return { date, weight: bestWeight, reps: bestReps };
+    });
+
+    stats.push({
+      exercise,
+      lastWeight,
+      maxWeight,
+      totalSessions: dates.length,
+      recentLogs,
+    });
+  }
 
   return { data: stats, error: null };
 }

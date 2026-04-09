@@ -7,6 +7,8 @@ export async function fetchTodayWorkout(
   dayOfWeek: number,
   dateStr: string
 ): Promise<{ data: ExerciseWithSets[]; error: string | null }> {
+  const userId = await getUserId();
+
   const { data: routines, error: routinesError } = await supabase
     .from('routines')
     .select('*, exercises(*)')
@@ -16,25 +18,57 @@ export async function fetchTodayWorkout(
   if (routinesError) return { data: [], error: routinesError.message };
   if (!routines || routines.length === 0) return { data: [], error: null };
 
-  const { data: logs, error: logsError } = await supabase
-    .from('workout_logs')
-    .select('*')
-    .eq('workout_date', dateStr);
+  const exerciseIds = (routines as RoutineWithExercise[]).map((r) => r.exercise_id);
 
-  if (logsError) return { data: [], error: logsError.message };
+  const [logsRes, prevRes] = await Promise.all([
+    supabase
+      .from('workout_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('workout_date', dateStr),
+    supabase
+      .from('workout_logs')
+      .select('exercise_id, workout_date, set_number, reps, weight')
+      .eq('user_id', userId)
+      .in('exercise_id', exerciseIds)
+      .lt('workout_date', dateStr)
+      .order('workout_date', { ascending: false })
+      .order('set_number', { ascending: true })
+      .limit(50),
+  ]);
+
+  if (logsRes.error) return { data: [], error: logsRes.error.message };
+
+  // Build lookup: exercise_id -> most recent date's logs (single pass, O(n))
+  const prevByExercise: Record<string, { set_number: number; reps: number; weight: number }[]> = {};
+  const firstDateByExercise: Record<string, string> = {};
+  if (prevRes.data) {
+    for (const log of prevRes.data) {
+      if (!firstDateByExercise[log.exercise_id]) {
+        firstDateByExercise[log.exercise_id] = log.workout_date;
+        prevByExercise[log.exercise_id] = [{ set_number: log.set_number, reps: log.reps, weight: log.weight }];
+      } else if (firstDateByExercise[log.exercise_id] === log.workout_date) {
+        prevByExercise[log.exercise_id].push({ set_number: log.set_number, reps: log.reps, weight: log.weight });
+      }
+    }
+  }
 
   const exercisesWithSets = (routines as RoutineWithExercise[]).map((r) => {
-    const existingLogs = (logs || []).filter(
+    const existingLogs = (logsRes.data || []).filter(
       (l) => l.exercise_id === r.exercise_id
     );
+    const prevLogs = prevByExercise[r.exercise_id] || [];
     const sets_data: SetLog[] = [];
     for (let i = 1; i <= r.sets; i++) {
       const existing = existingLogs.find((l) => l.set_number === i);
+      const prevSet = prevLogs.find((p) => p.set_number === i);
       sets_data.push({
         set_number: i,
-        reps: existing ? String(existing.reps) : '',
-        weight: existing ? String(existing.weight) : '',
+        reps: existing ? String(existing.reps) : (prevSet ? String(prevSet.reps) : ''),
+        weight: existing ? String(existing.weight) : (prevSet ? String(prevSet.weight) : ''),
         saved: !!existing,
+        previousReps: prevSet ? String(prevSet.reps) : undefined,
+        previousWeight: prevSet ? String(prevSet.weight) : undefined,
       });
     }
     return { ...r, sets_data };

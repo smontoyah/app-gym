@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchTodayWorkout, saveWorkoutSet } from './_lib/actions';
@@ -7,16 +8,50 @@ import { ExerciseCard } from './_components/exercise-card';
 import type { ExerciseWithSets } from './_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
-const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const DAY_NAMES_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+const RestTimer = memo(function RestTimer({ startedAt }: { startedAt: number | null }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => restTimerStyles(colors), [colors]);
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (startedAt === null) return;
+    setSeconds(0);
+    const id = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  if (startedAt === null) return null;
+
+  return (
+    <View style={s.container}>
+      <Text style={s.text}>
+        Descanso: {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
+      </Text>
+    </View>
+  );
+});
+
+const restTimerStyles = (c: AppColorScheme) =>
+  StyleSheet.create({
+    container: { backgroundColor: c.surfaceSecondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, alignSelf: 'center', marginBottom: 12 },
+    text: { color: c.textSecondary, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  });
 
 export default function WorkoutScreen() {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
   const [exercises, setExercises] = useState<ExerciseWithSets[]>([]);
   const [loading, setLoading] = useState(true);
-  const today = new Date();
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
+  const today = useMemo(() => new Date(), []);
   const dayOfWeek = today.getDay();
-  const dateStr = today.toISOString().split('T')[0];
+  const dateStr = useMemo(() => today.toISOString().split('T')[0], [today]);
 
   useFocusEffect(
     useCallback(() => {
@@ -29,7 +64,7 @@ export default function WorkoutScreen() {
     }, [dayOfWeek, dateStr])
   );
 
-  const handleSaveSet = async (
+  const handleSaveSet = useCallback(async (
     exerciseId: string,
     setNumber: number,
     reps: string,
@@ -37,8 +72,8 @@ export default function WorkoutScreen() {
   ) => {
     const { success } = await saveWorkoutSet({ exerciseId, dateStr, setNumber, reps, weight });
     if (success) {
-      setExercises((prev) =>
-        prev.map((ex) =>
+      setExercises((prev) => {
+        const next = prev.map((ex) =>
           ex.exercise_id === exerciseId
             ? {
                 ...ex,
@@ -47,12 +82,55 @@ export default function WorkoutScreen() {
                 ),
               }
             : ex
-        )
-      );
+        );
+        const allDone = next.every((ex) => ex.sets_data.every((st) => st.saved));
+        setTimerStartedAt(allDone ? null : Date.now());
+        return next;
+      });
     }
-  };
+  }, [dateStr]);
 
-  const updateSetValue = (
+  const handleSaveAllSets = useCallback(async (
+    exerciseId: string,
+    sets: { setNumber: number; reps: string; weight: string }[]
+  ) => {
+    const results = await Promise.all(
+      sets.map((st) =>
+        saveWorkoutSet({
+          exerciseId,
+          dateStr,
+          setNumber: st.setNumber,
+          reps: st.reps,
+          weight: st.weight,
+        })
+      )
+    );
+    const savedSetNumbers = sets
+      .filter((_, i) => results[i].success)
+      .map((st) => st.setNumber);
+
+    if (savedSetNumbers.length > 0) {
+      setExercises((prev) => {
+        const next = prev.map((ex) =>
+          ex.exercise_id === exerciseId
+            ? {
+                ...ex,
+                sets_data: ex.sets_data.map((st) =>
+                  savedSetNumbers.includes(st.set_number)
+                    ? { ...st, saved: true }
+                    : st
+                ),
+              }
+            : ex
+        );
+        const allDone = next.every((ex) => ex.sets_data.every((st) => st.saved));
+        setTimerStartedAt(allDone ? null : Date.now());
+        return next;
+      });
+    }
+  }, [dateStr]);
+
+  const updateSetValue = useCallback((
     exerciseIndex: number,
     setIndex: number,
     field: 'reps' | 'weight',
@@ -68,7 +146,7 @@ export default function WorkoutScreen() {
       };
       return updated;
     });
-  };
+  }, []);
 
   const sortedExercises = useMemo(() => {
     const indexed = exercises.map((ex, i) => ({ exercise: ex, originalIndex: i }));
@@ -79,6 +157,14 @@ export default function WorkoutScreen() {
       return aDone ? 1 : -1;
     });
     return indexed;
+  }, [exercises]);
+
+  const progress = useMemo(() => {
+    const total = exercises.length;
+    const completed = exercises.filter(
+      (ex) => ex.sets_data.length > 0 && ex.sets_data.every((s) => s.saved)
+    ).length;
+    return { completed, total };
   }, [exercises]);
 
   if (loading) {
@@ -93,8 +179,14 @@ export default function WorkoutScreen() {
     return (
       <View style={s.center}>
         <Text style={s.emptyIcon}>💪</Text>
-        <Text style={s.emptyText}>No hay ejercicios para {DAY_NAMES[dayOfWeek]}</Text>
+        <Text style={s.emptyText}>No hay ejercicios para {DAY_NAMES_FULL[dayOfWeek]}</Text>
         <Text style={s.emptySubtext}>Configurá tu rutina en la pestaña "Rutinas"</Text>
+        <TouchableOpacity
+          style={s.emptyBtn}
+          onPress={() => router.push('/(tabs)/configuracion')}
+        >
+          <Text style={s.emptyBtnText}>Ir a Rutinas</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -106,7 +198,23 @@ export default function WorkoutScreen() {
       data={sortedExercises}
       keyExtractor={(item) => item.exercise.id}
       ListHeaderComponent={
-        <Text style={s.dateHeader}>{DAY_NAMES[dayOfWeek]} — {dateStr}</Text>
+        <>
+          <Text style={s.dateHeader}>{DAY_NAMES_FULL[dayOfWeek]} {today.getDate()} de {MONTH_NAMES[today.getMonth()]}</Text>
+          <View style={s.progressContainer}>
+            <View style={s.progressBarBg}>
+              <View
+                style={[
+                  s.progressBarFill,
+                  { width: `${progress.total > 0 ? (progress.completed / progress.total) * 100 : 0}%` },
+                ]}
+              />
+            </View>
+            <Text style={s.progressText}>
+              {progress.completed} de {progress.total} ejercicios completados
+            </Text>
+          </View>
+          <RestTimer startedAt={timerStartedAt} />
+        </>
       }
       renderItem={({ item }) => (
         <ExerciseCard
@@ -114,6 +222,7 @@ export default function WorkoutScreen() {
           exerciseIndex={item.originalIndex}
           onSetValueChange={updateSetValue}
           onSaveSet={handleSaveSet}
+          onSaveAllSets={handleSaveAllSets}
         />
       )}
     />
@@ -129,4 +238,10 @@ const createStyles = (c: AppColorScheme) =>
     emptyIcon: { fontSize: 48, marginBottom: 12 },
     emptyText: { color: c.text, fontSize: 18, fontWeight: '600' },
     emptySubtext: { color: c.textSecondary, fontSize: 14, marginTop: 8 },
+    emptyBtn: { marginTop: 20, backgroundColor: c.accent, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 28 },
+    emptyBtnText: { color: c.accentText, fontSize: 15, fontWeight: '700' },
+    progressContainer: { marginBottom: 16, alignItems: 'center' as const },
+    progressBarBg: { width: '100%' as const, height: 6, backgroundColor: c.surfaceSecondary, borderRadius: 3, overflow: 'hidden' as const, marginBottom: 6 },
+    progressBarFill: { height: '100%' as const, backgroundColor: c.success, borderRadius: 3 },
+    progressText: { color: c.textSecondary, fontSize: 13 },
   });

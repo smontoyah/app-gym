@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
@@ -27,9 +27,9 @@ type ExerciseFormProps = {
   onInputFocus?: () => void;
 };
 
-export function ExerciseForm({ visible, onToggle, onSubmit, onInputFocus }: ExerciseFormProps) {
+export const ExerciseForm = memo(function ExerciseForm({ visible, onToggle, onSubmit, onInputFocus }: ExerciseFormProps) {
   const { colors } = useTheme();
-  const s = createStyles(colors);
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [name, setName] = useState('');
   const [muscle, setMuscle] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -98,7 +98,7 @@ export function ExerciseForm({ visible, onToggle, onSubmit, onInputFocus }: Exer
       </View>
     </View>
   );
-}
+});
 
 const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
