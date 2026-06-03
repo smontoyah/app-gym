@@ -11,6 +11,8 @@ import {
   swapRoutineOrder,
   fetchDaysWithRoutines,
   copyRoutineFromDay,
+  moveRoutineToDay,
+  swapRoutineDays,
 } from './_lib/actions';
 import { DaySelector, DAYS } from './_components/day-selector';
 import { RoutineCard } from './_components/routine-card';
@@ -26,7 +28,7 @@ export default function ConfigScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showCopyPicker, setShowCopyPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'copy' | 'move' | 'swap' | null>(null);
   const [availableDays, setAvailableDays] = useState<number[]>([]);
 
   const loadData = useCallback(async () => {
@@ -61,6 +63,8 @@ export default function ConfigScreen() {
     loadData();
   };
 
+  const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Lun→Dom
+
   const handleOpenCopyPicker = async () => {
     const { days } = await fetchDaysWithRoutines();
     const otherDays = days.filter((d) => d !== selectedDay);
@@ -69,17 +73,64 @@ export default function ConfigScreen() {
       return;
     }
     setAvailableDays(otherDays);
-    setShowCopyPicker(true);
+    setPickerMode('copy');
   };
 
-  const handleCopyFromDay = async (sourceDay: number) => {
-    setShowCopyPicker(false);
-    const result = await copyRoutineFromDay(sourceDay, selectedDay);
-    if (result.error) {
-      Alert.alert('Aviso', result.error);
-    } else {
-      Alert.alert('Listo', `Se copiaron ${result.copiedCount} ejercicio(s).`);
-      loadData();
+  const handleOpenDayActionPicker = (mode: 'move' | 'swap') => {
+    if (routines.length === 0) {
+      Alert.alert('Día vacío', `${DAYS[selectedDay]} no tiene ejercicios para ${mode === 'move' ? 'mover' : 'intercambiar'}.`);
+      return;
+    }
+    setAvailableDays(ALL_DAYS.filter((d) => d !== selectedDay));
+    setPickerMode(mode);
+  };
+
+  const handlePickDay = async (targetDay: number) => {
+    const mode = pickerMode;
+    setPickerMode(null);
+
+    if (mode === 'copy') {
+      const result = await copyRoutineFromDay(targetDay, selectedDay);
+      if (result.error) Alert.alert('Aviso', result.error);
+      else { Alert.alert('Listo', `Se copiaron ${result.copiedCount} ejercicio(s).`); loadData(); }
+      return;
+    }
+
+    if (mode === 'move') {
+      Alert.alert(
+        'Mover rutina',
+        `Mover la rutina de ${DAYS[selectedDay]} a ${DAYS[targetDay]}. ${DAYS[selectedDay]} quedará libre.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Mover',
+            onPress: async () => {
+              const result = await moveRoutineToDay(selectedDay, targetDay);
+              if (result.error) Alert.alert('Aviso', result.error);
+              else { setSelectedDay(targetDay); loadData(); }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    if (mode === 'swap') {
+      Alert.alert(
+        'Intercambiar días',
+        `Intercambiar las rutinas de ${DAYS[selectedDay]} y ${DAYS[targetDay]}.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Intercambiar',
+            onPress: async () => {
+              const result = await swapRoutineDays(selectedDay, targetDay);
+              if (result.error) Alert.alert('Aviso', result.error);
+              else loadData();
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -131,9 +182,17 @@ export default function ConfigScreen() {
     >
         <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} />
         <Text style={s.sectionTitle}>Rutina del {DAYS[selectedDay]}</Text>
-        <TouchableOpacity style={s.copyButton} onPress={handleOpenCopyPicker}>
-          <Text style={s.copyButtonText}>Copiar de otro día...</Text>
-        </TouchableOpacity>
+        <View style={s.actionRow}>
+          <TouchableOpacity style={s.actionButton} onPress={handleOpenCopyPicker}>
+            <Text style={s.actionButtonText}>Copiar de…</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionButton} onPress={() => handleOpenDayActionPicker('move')}>
+            <Text style={s.actionButtonText}>Mover a…</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionButton} onPress={() => handleOpenDayActionPicker('swap')}>
+            <Text style={s.actionButtonText}>Intercambiar…</Text>
+          </TouchableOpacity>
+        </View>
 
         {routines.length === 0 && !loading && (
           <Text style={s.emptyText}>No hay ejercicios para este día</Text>
@@ -186,26 +245,30 @@ export default function ConfigScreen() {
           onInputFocus={scrollToEnd}
         />
       </ScrollView>
-    <Modal visible={showCopyPicker} transparent animationType="fade">
+    <Modal visible={pickerMode !== null} transparent animationType="fade">
       <TouchableOpacity
         style={s.modalOverlay}
         activeOpacity={1}
-        onPress={() => setShowCopyPicker(false)}
+        onPress={() => setPickerMode(null)}
       >
         <View style={s.modalContent}>
-          <Text style={s.modalTitle}>Copiar rutina de:</Text>
+          <Text style={s.modalTitle}>
+            {pickerMode === 'copy' && 'Copiar rutina de:'}
+            {pickerMode === 'move' && `Mover ${DAYS[selectedDay]} a:`}
+            {pickerMode === 'swap' && `Intercambiar ${DAYS[selectedDay]} con:`}
+          </Text>
           {availableDays.map((day) => (
             <TouchableOpacity
               key={day}
               style={s.modalOption}
-              onPress={() => handleCopyFromDay(day)}
+              onPress={() => handlePickDay(day)}
             >
               <Text style={s.modalOptionText}>{DAYS[day]}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity
             style={s.modalCancel}
-            onPress={() => setShowCopyPicker(false)}
+            onPress={() => setPickerMode(null)}
           >
             <Text style={s.modalCancelText}>Cancelar</Text>
           </TouchableOpacity>
@@ -232,8 +295,9 @@ const createStyles = (c: AppColorScheme) =>
     addCardName: { color: c.text, fontSize: 15 },
     addCardMuscle: { color: c.textMuted, fontSize: 12, marginTop: 2 },
     addIcon: { color: c.accent, fontSize: 24, fontWeight: '700' },
-    copyButton: { borderWidth: 1, borderColor: c.accent, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'flex-start' as const, marginBottom: 12 },
-    copyButtonText: { color: c.accent, fontSize: 13, fontWeight: '600' },
+    actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    actionButton: { borderWidth: 1, borderColor: c.accent, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 },
+    actionButtonText: { color: c.accent, fontSize: 13, fontWeight: '600' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' as const, alignItems: 'center' as const },
     modalContent: { backgroundColor: c.surface, borderRadius: 16, padding: 20, minWidth: 260 },
     modalTitle: { color: c.text, fontSize: 17, fontWeight: '700', marginBottom: 16 },
