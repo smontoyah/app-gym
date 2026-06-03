@@ -31,20 +31,26 @@ const ThemeContext = createContext<ThemeContextType>({
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useSystemColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
-      if (stored === 'light' || stored === 'dark' || stored === 'system') {
-        setModeState(stored);
-      }
-      setLoaded(true);
-    });
+    // Cargamos el tema guardado en segundo plano. NO bloqueamos el render de la
+    // app esperando a AsyncStorage: arrancamos con el tema por defecto y lo
+    // ajustamos si/cuando el almacenamiento responda. Bloquear aquí dejaba la
+    // app colgada en el splash si AsyncStorage no resolvía.
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((stored) => {
+        if (stored === 'light' || stored === 'dark' || stored === 'system') {
+          setModeState(stored);
+        }
+      })
+      .catch(() => {
+        // Sin tema guardado o fallo de lectura: nos quedamos con el default.
+      });
   }, []);
 
   const setMode = useCallback((newMode: ThemeMode) => {
     setModeState(newMode);
-    AsyncStorage.setItem(STORAGE_KEY, newMode);
+    AsyncStorage.setItem(STORAGE_KEY, newMode).catch(() => {});
   }, []);
 
   const isDark = mode === 'system' ? systemScheme !== 'light' : mode === 'dark';
@@ -54,8 +60,6 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({ mode, isDark, colors, setMode }),
     [mode, isDark, colors, setMode]
   );
-
-  if (!loaded) return null;
 
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

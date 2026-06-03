@@ -21,18 +21,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        setIsLoading(false);
+      }
+    };
+
+    // Salvaguarda: si getSession() nunca se resuelve (p. ej. el almacenamiento
+    // no responde), no nos quedamos colgados en el splash; tras 4s mostramos el
+    // login. El onAuthStateChange seguirá actualizando la sesión si llega.
+    const timeout = setTimeout(finish, 4000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch(() => {
+        // Si falla la lectura de sesión, dejamos al usuario en el login.
+      })
+      .finally(finish);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
+        finish();
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo(() => ({

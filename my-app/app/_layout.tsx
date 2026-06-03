@@ -62,6 +62,15 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Red de seguridad: si por cualquier motivo los providers no ocultan el
+  // splash, lo forzamos para no quedar colgados en la pantalla de carga.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <AppThemeProvider>
       <AuthProvider>
