@@ -11,7 +11,7 @@ import type { AppColorScheme } from '@/constants/theme';
 const DAY_NAMES_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-const RestTimer = memo(function RestTimer({ startedAt }: { startedAt: number | null }) {
+const RestTimer = memo(function RestTimer({ startedAt, onStop }: { startedAt: number | null; onStop: () => void }) {
   const { colors } = useTheme();
   const s = useMemo(() => restTimerStyles(colors), [colors]);
   const [seconds, setSeconds] = useState(0);
@@ -32,14 +32,19 @@ const RestTimer = memo(function RestTimer({ startedAt }: { startedAt: number | n
       <Text style={s.text}>
         Descanso: {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
       </Text>
+      <TouchableOpacity style={s.stopBtn} onPress={onStop}>
+        <Text style={s.stopText}>Parar</Text>
+      </TouchableOpacity>
     </View>
   );
 });
 
 const restTimerStyles = (c: AppColorScheme) =>
   StyleSheet.create({
-    container: { backgroundColor: c.surfaceSecondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, alignSelf: 'center', marginBottom: 12 },
+    container: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surfaceSecondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, alignSelf: 'center', marginBottom: 12 },
     text: { color: c.textSecondary, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+    stopBtn: { backgroundColor: c.danger, borderRadius: 6, paddingVertical: 4, paddingHorizontal: 12 },
+    stopText: { color: c.accentText, fontSize: 13, fontWeight: '700' },
   });
 
 export default function WorkoutScreen() {
@@ -213,7 +218,7 @@ export default function WorkoutScreen() {
               {progress.completed} de {progress.total} ejercicios completados
             </Text>
           </View>
-          <RestTimer startedAt={timerStartedAt} />
+          <RestTimer startedAt={timerStartedAt} onStop={() => setTimerStartedAt(null)} />
         </>
       }
       renderItem={({ item }) => (

@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const s = createStyles(colors);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
 
@@ -54,7 +55,12 @@ export default function LoginScreen() {
         {isRegister ? 'Creá tu cuenta' : 'Ingresá para continuar'}
       </Text>
       <TextInput style={s.input} placeholder="Email" placeholderTextColor={colors.textMuted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-      <TextInput style={s.input} placeholder="Contraseña" placeholderTextColor={colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
+      <View style={s.passwordRow}>
+        <TextInput style={s.passwordInput} placeholder="Contraseña" placeholderTextColor={colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
+        <TouchableOpacity style={s.eyeButton} onPress={() => setShowPassword((v) => !v)}>
+          <Text style={s.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity style={s.button} onPress={handleSubmit} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : (
           <Text style={s.buttonText}>{isRegister ? 'Crear cuenta' : 'Iniciar sesión'}</Text>
@@ -76,6 +82,10 @@ const createStyles = (c: AppColorScheme) =>
     title: { color: c.text, fontSize: 32, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
     subtitle: { color: c.textSecondary, fontSize: 16, textAlign: 'center', marginBottom: 32 },
     input: { backgroundColor: c.surface, borderRadius: 12, color: c.text, fontSize: 16, padding: 16, marginBottom: 12 },
+    passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, borderRadius: 12, marginBottom: 12 },
+    passwordInput: { flex: 1, color: c.text, fontSize: 16, padding: 16 },
+    eyeButton: { paddingHorizontal: 16, paddingVertical: 16 },
+    eyeText: { fontSize: 18 },
     button: { backgroundColor: c.accent, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
     buttonText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
     switchButton: { marginTop: 20, alignItems: 'center' },
