@@ -1,80 +1,173 @@
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/lib/auth-helpers';
-import type { RoutineWithExercise } from '@/types/database';
-import type { ExerciseWithSets, SetLog } from './types';
+import { dayOfWeek } from '@/lib/date';
+import type { PreviousSetRow, RoutineWithExercise } from '@/types/database';
+import type { CardioEntry, DayWorkout, ExerciseWithSets, SetLog, WorkoutBlock } from './types';
 
-export async function fetchTodayWorkout(
-  dayOfWeek: number,
+/** Incremento mínimo razonable en gimnasio (mancuernas / stack de máquina). */
+const LOAD_STEP_KG = 2.5;
+
+/** '13' → 13 · '13 c/u' → 13 · '18' → 18 · null → null */
+function parseTargetReps(target: string | null): number | null {
+  if (!target) return null;
+  const match = target.match(/\d+/);
+  return match ? parseInt(match[0], 10) : null;
+}
+
+/**
+ * Sugerencia de carga para hoy a partir de la sesión previa.
+ * El plan es a repeticiones y RIR fijos, así que la progresión es por carga:
+ * si la última vez completaste el objetivo en todas las series, toca subir.
+ */
+function buildSuggestion(
+  previous: PreviousSetRow[],
+  targetReps: number | null,
+  rpeTarget: number | null
+): string | undefined {
+  if (previous.length === 0 || targetReps === null) return undefined;
+
+  const topWeight = Math.max(...previous.map((p) => Number(p.weight)));
+  if (!Number.isFinite(topWeight) || topWeight <= 0) return undefined;
+
+  const hitAllReps = previous.every((p) => p.reps >= targetReps);
+  const rpes = previous.map((p) => p.rpe).filter((r): r is number => r !== null);
+  const avgRpe = rpes.length > 0 ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
+  const rpeUnderTarget = rpeTarget === null || avgRpe === null || avgRpe <= rpeTarget;
+
+  if (hitAllReps && rpeUnderTarget) {
+    const next = Math.round((topWeight + LOAD_STEP_KG) * 10) / 10;
+    return `Sugerido: subí a ${next} kg`;
+  }
+  if (hitAllReps) {
+    return `Sugerido: mantené ${topWeight} kg (RPE por encima del objetivo)`;
+  }
+  return `Sugerido: mantené ${topWeight} kg hasta completar ${targetReps} reps`;
+}
+
+/** Agrupa ejercicios consecutivos que comparten super serie en un solo bloque. */
+function groupIntoBlocks(exercises: ExerciseWithSets[]): WorkoutBlock[] {
+  const blocks: WorkoutBlock[] = [];
+
+  for (const exercise of exercises) {
+    const group = exercise.superset_group;
+    const last = blocks[blocks.length - 1];
+
+    if (group && last && last.supersetGroup === group) {
+      last.exercises.push(exercise);
+    } else {
+      blocks.push({
+        key: group ? `ss-${group}-${exercise.id}` : exercise.id,
+        supersetGroup: group,
+        exercises: [exercise],
+      });
+    }
+  }
+
+  return blocks;
+}
+
+export async function fetchDayWorkout(
   dateStr: string
-): Promise<{ data: ExerciseWithSets[]; error: string | null }> {
+): Promise<{ data: DayWorkout; error: string | null }> {
   const userId = await getUserId();
+  const dow = dayOfWeek(dateStr);
+  const empty: DayWorkout = {
+    blocks: [],
+    cardio: { plan: null, log: null },
+    phase: null,
+  };
 
-  const { data: routines, error: routinesError } = await supabase
-    .from('routines')
-    .select('*, exercises(*)')
-    .eq('day_of_week', dayOfWeek)
-    .order('sort_order');
+  const [routinesRes, cardioPlanRes, cardioLogRes, phaseRes] = await Promise.all([
+    supabase
+      .from('routines')
+      .select('*, exercises(*)')
+      .eq('user_id', userId)
+      .eq('day_of_week', dow)
+      .order('sort_order'),
+    supabase
+      .from('cardio_plan')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('day_of_week', dow)
+      .maybeSingle(),
+    supabase
+      .from('cardio_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('workout_date', dateStr)
+      .maybeSingle(),
+    supabase
+      .from('training_phases')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .maybeSingle(),
+  ]);
 
-  if (routinesError) return { data: [], error: routinesError.message };
-  if (!routines || routines.length === 0) return { data: [], error: null };
+  if (routinesRes.error) return { data: empty, error: routinesRes.error.message };
 
-  const exerciseIds = (routines as RoutineWithExercise[]).map((r) => r.exercise_id);
+  const cardio: CardioEntry = {
+    plan: cardioPlanRes.data ?? null,
+    log: cardioLogRes.data ?? null,
+  };
+  const phase = phaseRes.data ?? null;
+  const rpeTarget = phase?.rpe_target ? parseTargetReps(phase.rpe_target) : null;
 
-  const [logsRes, prevRes] = await Promise.all([
+  const routines = (routinesRes.data ?? []) as RoutineWithExercise[];
+  if (routines.length === 0) {
+    return { data: { blocks: [], cardio, phase }, error: null };
+  }
+
+  const exerciseIds = routines.map((r) => r.exercise_id);
+
+  const [logsRes, previousRes] = await Promise.all([
     supabase
       .from('workout_logs')
       .select('*')
       .eq('user_id', userId)
       .eq('workout_date', dateStr),
-    supabase
-      .from('workout_logs')
-      .select('exercise_id, workout_date, set_number, reps, weight')
-      .eq('user_id', userId)
-      .in('exercise_id', exerciseIds)
-      .lt('workout_date', dateStr)
-      .order('workout_date', { ascending: false })
-      .order('set_number', { ascending: true })
-      .limit(50),
+    supabase.rpc('previous_sets', { p_before: dateStr, p_exercise_ids: exerciseIds }),
   ]);
 
-  if (logsRes.error) return { data: [], error: logsRes.error.message };
+  if (logsRes.error) return { data: { blocks: [], cardio, phase }, error: logsRes.error.message };
 
-  // Build lookup: exercise_id -> most recent date's logs (single pass, O(n))
-  const prevByExercise: Record<string, { set_number: number; reps: number; weight: number }[]> = {};
-  const firstDateByExercise: Record<string, string> = {};
-  if (prevRes.data) {
-    for (const log of prevRes.data) {
-      if (!firstDateByExercise[log.exercise_id]) {
-        firstDateByExercise[log.exercise_id] = log.workout_date;
-        prevByExercise[log.exercise_id] = [{ set_number: log.set_number, reps: log.reps, weight: log.weight }];
-      } else if (firstDateByExercise[log.exercise_id] === log.workout_date) {
-        prevByExercise[log.exercise_id].push({ set_number: log.set_number, reps: log.reps, weight: log.weight });
-      }
-    }
+  const previousByExercise = new Map<string, PreviousSetRow[]>();
+  for (const row of (previousRes.data ?? []) as PreviousSetRow[]) {
+    const bucket = previousByExercise.get(row.exercise_id);
+    if (bucket) bucket.push(row);
+    else previousByExercise.set(row.exercise_id, [row]);
   }
 
-  const exercisesWithSets = (routines as RoutineWithExercise[]).map((r) => {
-    const existingLogs = (logsRes.data || []).filter(
-      (l) => l.exercise_id === r.exercise_id
-    );
-    const prevLogs = prevByExercise[r.exercise_id] || [];
+  const exercises: ExerciseWithSets[] = routines.map((routine) => {
+    const savedLogs = (logsRes.data ?? []).filter((l) => l.exercise_id === routine.exercise_id);
+    const previous = previousByExercise.get(routine.exercise_id) ?? [];
+    const targetReps = parseTargetReps(routine.target_reps);
+
     const sets_data: SetLog[] = [];
-    for (let i = 1; i <= r.sets; i++) {
-      const existing = existingLogs.find((l) => l.set_number === i);
-      const prevSet = prevLogs.find((p) => p.set_number === i);
+    for (let n = 1; n <= routine.sets; n++) {
+      const saved = savedLogs.find((l) => l.set_number === n);
+      const prev = previous.find((p) => p.set_number === n);
       sets_data.push({
-        set_number: i,
-        reps: existing ? String(existing.reps) : (prevSet ? String(prevSet.reps) : ''),
-        weight: existing ? String(existing.weight) : (prevSet ? String(prevSet.weight) : ''),
-        saved: !!existing,
-        previousReps: prevSet ? String(prevSet.reps) : undefined,
-        previousWeight: prevSet ? String(prevSet.weight) : undefined,
+        set_number: n,
+        reps: saved ? String(saved.reps) : prev ? String(prev.reps) : '',
+        weight: saved ? String(saved.weight) : prev ? String(prev.weight) : '',
+        rpe: saved?.rpe != null ? String(saved.rpe) : '',
+        saved: !!saved,
+        previousReps: prev ? String(prev.reps) : undefined,
+        previousWeight: prev ? String(prev.weight) : undefined,
+        previousRpe: prev?.rpe != null ? String(prev.rpe) : undefined,
       });
     }
-    return { ...r, sets_data };
+
+    return {
+      ...routine,
+      sets_data,
+      previousDate: previous[0]?.workout_date,
+      suggestion: buildSuggestion(previous, targetReps, rpeTarget),
+    };
   });
 
-  return { data: exercisesWithSets, error: null };
+  return { data: { blocks: groupIntoBlocks(exercises), cardio, phase }, error: null };
 }
 
 export async function saveWorkoutSet(params: {
@@ -83,10 +176,22 @@ export async function saveWorkoutSet(params: {
   setNumber: number;
   reps: string;
   weight: string;
+  rpe: string;
 }): Promise<{ success: boolean; error: string | null }> {
-  const { exerciseId, dateStr, setNumber, reps, weight } = params;
+  const { exerciseId, dateStr, setNumber, reps, weight, rpe } = params;
 
   if (!reps || !weight) return { success: false, error: 'Faltan datos' };
+
+  const parsedReps = parseInt(reps, 10);
+  const parsedWeight = parseFloat(weight);
+  if (!Number.isFinite(parsedReps) || !Number.isFinite(parsedWeight)) {
+    return { success: false, error: 'Valores inválidos' };
+  }
+
+  const parsedRpe = rpe ? parseFloat(rpe) : NaN;
+  if (rpe && (!Number.isFinite(parsedRpe) || parsedRpe < 1 || parsedRpe > 10)) {
+    return { success: false, error: 'El RPE debe estar entre 1 y 10' };
+  }
 
   const userId = await getUserId();
 
@@ -96,10 +201,37 @@ export async function saveWorkoutSet(params: {
       exercise_id: exerciseId,
       workout_date: dateStr,
       set_number: setNumber,
-      reps: parseInt(reps, 10),
-      weight: parseFloat(weight),
+      reps: parsedReps,
+      weight: parsedWeight,
+      rpe: rpe ? parsedRpe : null,
     },
     { onConflict: 'exercise_id,workout_date,set_number', ignoreDuplicates: false }
+  );
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, error: null };
+}
+
+export async function saveCardioSession(params: {
+  dateStr: string;
+  minutes: string;
+  modality: string | null;
+}): Promise<{ success: boolean; error: string | null }> {
+  const parsed = parseInt(params.minutes, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { success: false, error: 'Minutos inválidos' };
+  }
+
+  const userId = await getUserId();
+
+  const { error } = await supabase.from('cardio_logs').upsert(
+    {
+      user_id: userId,
+      workout_date: params.dateStr,
+      minutes: parsed,
+      modality: params.modality,
+    },
+    { onConflict: 'user_id,workout_date', ignoreDuplicates: false }
   );
 
   if (error) return { success: false, error: error.message };

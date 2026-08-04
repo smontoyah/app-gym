@@ -6,7 +6,7 @@ import {
   fetchRoutinesAndExercises,
   createExercise,
   addExerciseToRoutine,
-  updateRoutineSets,
+  updateRoutinePrescription,
   deleteRoutineEntry,
   swapRoutineOrder,
   fetchDaysWithRoutines,
@@ -15,7 +15,7 @@ import {
   swapRoutineDays,
 } from './_lib/actions';
 import { DaySelector, DAYS } from './_components/day-selector';
-import { RoutineCard } from './_components/routine-card';
+import { RoutineCard, type PrescriptionValues } from './_components/routine-card';
 import { ExerciseForm } from './_components/exercise-form';
 import type { Exercise, RoutineWithExercise } from '@/types/database';
 import type { AppColorScheme } from '@/constants/theme';
@@ -51,15 +51,14 @@ export default function ConfigScreen() {
     loadData();
   };
 
-  const handleUpdateSets = async (routineId: string, sets: number) => {
-    await updateRoutineSets(routineId, sets);
-    loadData();
+  const handleUpdatePrescription = async (routineId: string, values: PrescriptionValues) => {
+    const { error } = await updateRoutinePrescription(routineId, values);
+    if (error) Alert.alert('Aviso', error);
+    else loadData();
   };
 
   const handleSwapOrder = async (index1: number, index2: number) => {
-    const r1 = routines[index1];
-    const r2 = routines[index2];
-    await swapRoutineOrder(r1.id, r1.sort_order, r2.id, r2.sort_order);
+    await swapRoutineOrder(routines[index1].id, routines[index2].id);
     loadData();
   };
 
@@ -201,7 +200,7 @@ export default function ConfigScreen() {
           <RoutineCard
             key={r.id}
             routine={r}
-            onUpdateSets={handleUpdateSets}
+            onUpdatePrescription={handleUpdatePrescription}
             onRemove={handleRemove}
             onMoveUp={index > 0 ? () => handleSwapOrder(index, index - 1) : undefined}
             onMoveDown={index < routines.length - 1 ? () => handleSwapOrder(index, index + 1) : undefined}

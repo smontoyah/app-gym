@@ -1,176 +1,256 @@
-import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchTodayWorkout, saveWorkoutSet } from './_lib/actions';
-import { ExerciseCard } from './_components/exercise-card';
-import type { ExerciseWithSets } from './_lib/types';
+import { addDays, dayOfWeek, DAY_NAMES_FULL, formatLong, isToday, todayStr } from '@/lib/date';
+import { fetchDayWorkout, saveCardioSession, saveWorkoutSet } from './_lib/actions';
+import { BlockCard } from './_components/block-card';
+import { CardioCard } from './_components/cardio-card';
+import { PhaseBanner } from './_components/phase-banner';
+import { RestTimer, type RestTarget } from './_components/rest-timer';
+import type { SetField } from './_components/set-row';
+import type { DayWorkout, ExerciseWithSets, WorkoutBlock } from './_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
-const DAY_NAMES_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const MONTH_NAMES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DEFAULT_REST_SECONDS = 90;
 
-const RestTimer = memo(function RestTimer({ startedAt, onStop }: { startedAt: number | null; onStop: () => void }) {
-  const { colors } = useTheme();
-  const s = useMemo(() => restTimerStyles(colors), [colors]);
-  const [seconds, setSeconds] = useState(0);
+const EMPTY_WORKOUT: DayWorkout = {
+  blocks: [],
+  cardio: { plan: null, log: null },
+  phase: null,
+};
 
-  useEffect(() => {
-    if (startedAt === null) return;
-    setSeconds(0);
-    const id = setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [startedAt]);
+function flatten(blocks: WorkoutBlock[]): ExerciseWithSets[] {
+  return blocks.flatMap((b) => b.exercises);
+}
 
-  if (startedAt === null) return null;
+/**
+ * Descanso que toca después de guardar una serie, según lo prescrito.
+ * Dentro de una super serie el siguiente es el compañero de bloque,
+ * que es justamente por lo que ese ejercicio tiene `rest_seconds = 0`.
+ */
+function computeRest(blocks: WorkoutBlock[], exerciseId: string): RestTarget | null {
+  const flat = flatten(blocks);
+  if (flat.every((e) => e.sets_data.every((s) => s.saved))) return null;
 
-  return (
-    <View style={s.container}>
-      <Text style={s.text}>
-        Descanso: {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
-      </Text>
-      <TouchableOpacity style={s.stopBtn} onPress={onStop}>
-        <Text style={s.stopText}>Parar</Text>
-      </TouchableOpacity>
-    </View>
+  const current = flat.find((e) => e.exercise_id === exerciseId);
+  const block = blocks.find((b) => b.exercises.some((e) => e.exercise_id === exerciseId));
+  if (!current || !block) return null;
+
+  const pendingInBlock = block.exercises.filter((e) => e.sets_data.some((s) => !s.saved));
+  const index = flat.findIndex((e) => e.exercise_id === exerciseId);
+
+  const next =
+    pendingInBlock.find((e) => e.exercise_id !== exerciseId) ??
+    pendingInBlock.find((e) => e.exercise_id === exerciseId) ??
+    flat.slice(index + 1).find((e) => e.sets_data.some((s) => !s.saved)) ??
+    flat.find((e) => e.sets_data.some((s) => !s.saved));
+
+  return {
+    startedAt: Date.now(),
+    seconds: current.rest_seconds ?? DEFAULT_REST_SECONDS,
+    nextLabel: next ? next.exercises.name : 'terminar',
+  };
+}
+
+/** Aplica un cambio a un ejercicio concreto sin recrear los demás bloques. */
+function mapExercise(
+  blocks: WorkoutBlock[],
+  exerciseId: string,
+  fn: (exercise: ExerciseWithSets) => ExerciseWithSets
+): WorkoutBlock[] {
+  return blocks.map((block) =>
+    block.exercises.some((e) => e.exercise_id === exerciseId)
+      ? {
+          ...block,
+          exercises: block.exercises.map((e) => (e.exercise_id === exerciseId ? fn(e) : e)),
+        }
+      : block
   );
-});
-
-const restTimerStyles = (c: AppColorScheme) =>
-  StyleSheet.create({
-    container: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surfaceSecondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, alignSelf: 'center', marginBottom: 12 },
-    text: { color: c.textSecondary, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
-    stopBtn: { backgroundColor: c.danger, borderRadius: 6, paddingVertical: 4, paddingHorizontal: 12 },
-    stopText: { color: c.accentText, fontSize: 13, fontWeight: '700' },
-  });
+}
 
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const [exercises, setExercises] = useState<ExerciseWithSets[]>([]);
+
+  const [dateStr, setDateStr] = useState(todayStr);
+  const [workout, setWorkout] = useState<DayWorkout>(EMPTY_WORKOUT);
   const [loading, setLoading] = useState(true);
-  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
-  const today = useMemo(() => new Date(), []);
-  const dayOfWeek = today.getDay();
-  const dateStr = useMemo(() => today.toISOString().split('T')[0], [today]);
+  const [rest, setRest] = useState<RestTarget | null>(null);
+  const [lastSaved, setLastSaved] = useState<{ exerciseId: string; at: number } | null>(null);
+  const handledSaveRef = useRef<number | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        setLoading(true);
-        const { data } = await fetchTodayWorkout(dayOfWeek, dateStr);
-        setExercises(data);
-        setLoading(false);
-      })();
-    }, [dayOfWeek, dateStr])
-  );
+  // El descanso se calcula después de que el estado ya tiene la serie marcada
+  // como guardada, no dentro del updater (que debe ser puro). El guard por
+  // timestamp evita que se reinicie el cronómetro al teclear en otro ejercicio.
+  useEffect(() => {
+    if (!lastSaved || handledSaveRef.current === lastSaved.at) return;
+    handledSaveRef.current = lastSaved.at;
+    setRest(computeRest(workout.blocks, lastSaved.exerciseId));
+  }, [lastSaved, workout.blocks]);
 
-  const handleSaveSet = useCallback(async (
-    exerciseId: string,
-    setNumber: number,
-    reps: string,
-    weight: string
-  ) => {
-    const { success } = await saveWorkoutSet({ exerciseId, dateStr, setNumber, reps, weight });
-    if (success) {
-      setExercises((prev) => {
-        const next = prev.map((ex) =>
-          ex.exercise_id === exerciseId
-            ? {
-                ...ex,
-                sets_data: ex.sets_data.map((st) =>
-                  st.set_number === setNumber ? { ...st, saved: true } : st
-                ),
-              }
-            : ex
-        );
-        const allDone = next.every((ex) => ex.sets_data.every((st) => st.saved));
-        setTimerStartedAt(allDone ? null : Date.now());
-        return next;
-      });
-    }
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await fetchDayWorkout(dateStr);
+    setWorkout(data);
+    setLoading(false);
   }, [dateStr]);
 
-  const handleSaveAllSets = useCallback(async (
-    exerciseId: string,
-    sets: { setNumber: number; reps: string; weight: string }[]
-  ) => {
-    const results = await Promise.all(
-      sets.map((st) =>
-        saveWorkoutSet({
-          exerciseId,
-          dateStr,
-          setNumber: st.setNumber,
-          reps: st.reps,
-          weight: st.weight,
-        })
-      )
-    );
-    const savedSetNumbers = sets
-      .filter((_, i) => results[i].success)
-      .map((st) => st.setNumber);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-    if (savedSetNumbers.length > 0) {
-      setExercises((prev) => {
-        const next = prev.map((ex) =>
-          ex.exercise_id === exerciseId
-            ? {
-                ...ex,
-                sets_data: ex.sets_data.map((st) =>
-                  savedSetNumbers.includes(st.set_number)
-                    ? { ...st, saved: true }
-                    : st
-                ),
-              }
-            : ex
-        );
-        const allDone = next.every((ex) => ex.sets_data.every((st) => st.saved));
-        setTimerStartedAt(allDone ? null : Date.now());
-        return next;
-      });
-    }
-  }, [dateStr]);
-
-  const updateSetValue = useCallback((
-    exerciseIndex: number,
-    setIndex: number,
-    field: 'reps' | 'weight',
-    value: string
-  ) => {
-    setExercises((prev) => {
-      const updated = [...prev];
-      updated[exerciseIndex] = {
-        ...updated[exerciseIndex],
-        sets_data: updated[exerciseIndex].sets_data.map((st, i) =>
-          i === setIndex ? { ...st, [field]: value, saved: false } : st
-        ),
-      };
-      return updated;
-    });
+  const goToDate = useCallback((next: string) => {
+    setRest(null);
+    setDateStr(next);
   }, []);
 
-  const sortedExercises = useMemo(() => {
-    const indexed = exercises.map((ex, i) => ({ exercise: ex, originalIndex: i }));
-    indexed.sort((a, b) => {
-      const aDone = a.exercise.sets_data.length > 0 && a.exercise.sets_data.every(s => s.saved);
-      const bDone = b.exercise.sets_data.length > 0 && b.exercise.sets_data.every(s => s.saved);
-      if (aDone === bDone) return 0;
-      return aDone ? 1 : -1;
-    });
-    return indexed;
-  }, [exercises]);
+  const handleSaveSet = useCallback(
+    async (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => {
+      const { success } = await saveWorkoutSet({ exerciseId, dateStr, setNumber, reps, weight, rpe });
+      if (!success) return;
+
+      setWorkout((prev) => ({
+        ...prev,
+        blocks: mapExercise(prev.blocks, exerciseId, (exercise) => ({
+          ...exercise,
+          sets_data: exercise.sets_data.map((st) =>
+            st.set_number === setNumber ? { ...st, saved: true } : st
+          ),
+        })),
+      }));
+      setLastSaved({ exerciseId, at: Date.now() });
+    },
+    [dateStr]
+  );
+
+  const handleSaveAllSets = useCallback(
+    async (
+      exerciseId: string,
+      sets: { setNumber: number; reps: string; weight: string; rpe: string }[]
+    ) => {
+      const results = await Promise.all(
+        sets.map((st) =>
+          saveWorkoutSet({
+            exerciseId,
+            dateStr,
+            setNumber: st.setNumber,
+            reps: st.reps,
+            weight: st.weight,
+            rpe: st.rpe,
+          })
+        )
+      );
+      const saved = sets.filter((_, i) => results[i].success).map((st) => st.setNumber);
+      if (saved.length === 0) return;
+
+      setWorkout((prev) => ({
+        ...prev,
+        blocks: mapExercise(prev.blocks, exerciseId, (exercise) => ({
+          ...exercise,
+          sets_data: exercise.sets_data.map((st) =>
+            saved.includes(st.set_number) ? { ...st, saved: true } : st
+          ),
+        })),
+      }));
+      setLastSaved({ exerciseId, at: Date.now() });
+    },
+    [dateStr]
+  );
+
+  const handleSetValueChange = useCallback(
+    (exerciseId: string, setIndex: number, field: SetField, value: string) => {
+      setWorkout((prev) => ({
+        ...prev,
+        blocks: mapExercise(prev.blocks, exerciseId, (exercise) => ({
+          ...exercise,
+          sets_data: exercise.sets_data.map((st, i) =>
+            i === setIndex ? { ...st, [field]: value, saved: false } : st
+          ),
+        })),
+      }));
+    },
+    []
+  );
+
+  const handleSaveCardio = useCallback(
+    async (minutes: string, modality: string | null) => {
+      const { success } = await saveCardioSession({ dateStr, minutes, modality });
+      if (success) load();
+    },
+    [dateStr, load]
+  );
 
   const progress = useMemo(() => {
-    const total = exercises.length;
-    const completed = exercises.filter(
-      (ex) => ex.sets_data.length > 0 && ex.sets_data.every((s) => s.saved)
+    const flat = flatten(workout.blocks);
+    const completed = flat.filter(
+      (e) => e.sets_data.length > 0 && e.sets_data.every((st) => st.saved)
     ).length;
-    return { completed, total };
-  }, [exercises]);
+    return { completed, total: flat.length };
+  }, [workout.blocks]);
+
+  const dow = dayOfWeek(dateStr);
+  const targetRpe = workout.phase?.rpe_target?.split('/')[0] ?? null;
+
+  const header = (
+    <>
+      <View style={s.dateNav}>
+        <TouchableOpacity style={s.navBtn} onPress={() => goToDate(addDays(dateStr, -1))}>
+          <Text style={s.navBtnText}>‹</Text>
+        </TouchableOpacity>
+        <View style={s.dateBox}>
+          <Text style={s.dateHeader}>{formatLong(dateStr)}</Text>
+          {!isToday(dateStr) && (
+            <TouchableOpacity onPress={() => goToDate(todayStr())}>
+              <Text style={s.todayLink}>Volver a hoy</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity style={s.navBtn} onPress={() => goToDate(addDays(dateStr, 1))}>
+          <Text style={s.navBtnText}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <PhaseBanner phase={workout.phase} />
+
+      {progress.total > 0 && (
+        <View style={s.progressContainer}>
+          <View style={s.progressBarBg}>
+            <View
+              style={[s.progressBarFill, { width: `${(progress.completed / progress.total) * 100}%` }]}
+            />
+          </View>
+          <Text style={s.progressText}>
+            {progress.completed} de {progress.total} ejercicios completados
+          </Text>
+        </View>
+      )}
+
+      <RestTimer target={rest} onStop={() => setRest(null)} />
+    </>
+  );
+
+  const footer = (
+    <>
+      <CardioCard cardio={workout.cardio} onSave={handleSaveCardio} />
+      {progress.total === 0 && !loading && (
+        <View style={s.restDay}>
+          <Text style={s.restDayIcon}>🌙</Text>
+          <Text style={s.restDayText}>Sin trabajo de fuerza para {DAY_NAMES_FULL[dow]}</Text>
+          <Text style={s.restDaySub}>
+            {workout.cardio.plan
+              ? 'Día de descanso según el plan — sólo cardio.'
+              : 'Configurá tu rutina en la pestaña "Rutinas".'}
+          </Text>
+          {!workout.cardio.plan && (
+            <TouchableOpacity style={s.emptyBtn} onPress={() => router.push('/(tabs)/configuracion')}>
+              <Text style={s.emptyBtnText}>Ir a Rutinas</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </>
+  );
 
   if (loading) {
     return (
@@ -180,52 +260,20 @@ export default function WorkoutScreen() {
     );
   }
 
-  if (exercises.length === 0) {
-    return (
-      <View style={s.center}>
-        <Text style={s.emptyIcon}>💪</Text>
-        <Text style={s.emptyText}>No hay ejercicios para {DAY_NAMES_FULL[dayOfWeek]}</Text>
-        <Text style={s.emptySubtext}>Configurá tu rutina en la pestaña "Rutinas"</Text>
-        <TouchableOpacity
-          style={s.emptyBtn}
-          onPress={() => router.push('/(tabs)/configuracion')}
-        >
-          <Text style={s.emptyBtnText}>Ir a Rutinas</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <FlatList
       style={s.container}
       contentContainerStyle={s.content}
-      data={sortedExercises}
-      keyExtractor={(item) => item.exercise.id}
-      ListHeaderComponent={
-        <>
-          <Text style={s.dateHeader}>{DAY_NAMES_FULL[dayOfWeek]} {today.getDate()} de {MONTH_NAMES[today.getMonth()]}</Text>
-          <View style={s.progressContainer}>
-            <View style={s.progressBarBg}>
-              <View
-                style={[
-                  s.progressBarFill,
-                  { width: `${progress.total > 0 ? (progress.completed / progress.total) * 100 : 0}%` },
-                ]}
-              />
-            </View>
-            <Text style={s.progressText}>
-              {progress.completed} de {progress.total} ejercicios completados
-            </Text>
-          </View>
-          <RestTimer startedAt={timerStartedAt} onStop={() => setTimerStartedAt(null)} />
-        </>
-      }
+      data={workout.blocks}
+      keyExtractor={(block) => block.key}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={header}
+      ListFooterComponent={footer}
       renderItem={({ item }) => (
-        <ExerciseCard
-          exercise={item.exercise}
-          exerciseIndex={item.originalIndex}
-          onSetValueChange={updateSetValue}
+        <BlockCard
+          block={item}
+          targetRpe={targetRpe}
+          onSetValueChange={handleSetValueChange}
           onSaveSet={handleSaveSet}
           onSaveAllSets={handleSaveAllSets}
         />
@@ -239,14 +287,40 @@ const createStyles = (c: AppColorScheme) =>
     container: { flex: 1, backgroundColor: c.background },
     content: { padding: 16, paddingBottom: 32 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
-    dateHeader: { color: c.textSecondary, fontSize: 14, marginBottom: 16, textAlign: 'center' },
-    emptyIcon: { fontSize: 48, marginBottom: 12 },
-    emptyText: { color: c.text, fontSize: 18, fontWeight: '600' },
-    emptySubtext: { color: c.textSecondary, fontSize: 14, marginTop: 8 },
-    emptyBtn: { marginTop: 20, backgroundColor: c.accent, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 28 },
-    emptyBtnText: { color: c.accentText, fontSize: 15, fontWeight: '700' },
-    progressContainer: { marginBottom: 16, alignItems: 'center' as const },
-    progressBarBg: { width: '100%' as const, height: 6, backgroundColor: c.surfaceSecondary, borderRadius: 3, overflow: 'hidden' as const, marginBottom: 6 },
-    progressBarFill: { height: '100%' as const, backgroundColor: c.success, borderRadius: 3 },
+    dateNav: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    navBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    navBtnText: { color: c.text, fontSize: 20, fontWeight: '700', lineHeight: 22 },
+    dateBox: { flex: 1, alignItems: 'center' },
+    dateHeader: { color: c.text, fontSize: 15, fontWeight: '600' },
+    todayLink: { color: c.accent, fontSize: 12, marginTop: 2 },
+    progressContainer: { marginBottom: 12, alignItems: 'center' },
+    progressBarBg: {
+      width: '100%',
+      height: 6,
+      backgroundColor: c.surfaceSecondary,
+      borderRadius: 3,
+      overflow: 'hidden',
+      marginBottom: 6,
+    },
+    progressBarFill: { height: '100%', backgroundColor: c.success, borderRadius: 3 },
     progressText: { color: c.textSecondary, fontSize: 13 },
+    restDay: { alignItems: 'center', paddingVertical: 24 },
+    restDayIcon: { fontSize: 40, marginBottom: 10 },
+    restDayText: { color: c.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+    restDaySub: { color: c.textSecondary, fontSize: 13, marginTop: 6, textAlign: 'center' },
+    emptyBtn: {
+      marginTop: 18,
+      backgroundColor: c.accent,
+      borderRadius: 10,
+      paddingVertical: 12,
+      paddingHorizontal: 28,
+    },
+    emptyBtnText: { color: c.accentText, fontSize: 15, fontWeight: '700' },
   });

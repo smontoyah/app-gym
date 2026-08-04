@@ -63,21 +63,6 @@ export async function addExerciseToRoutine(params: {
   return { success: true, error: null };
 }
 
-export async function updateRoutineSets(
-  routineId: string,
-  sets: number
-): Promise<{ success: boolean; error: string | null }> {
-  if (sets < 1 || sets > 10) return { success: false, error: 'Sets fuera de rango' };
-
-  const { error } = await supabase
-    .from('routines')
-    .update({ sets })
-    .eq('id', routineId);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, error: null };
-}
-
 export async function deleteRoutineEntry(
   routineId: string
 ): Promise<{ success: boolean; error: string | null }> {
@@ -90,19 +75,43 @@ export async function deleteRoutineEntry(
   return { success: true, error: null };
 }
 
+/** Actualiza la prescripción del entrenador para una fila de la rutina. */
+export async function updateRoutinePrescription(
+  routineId: string,
+  values: {
+    sets?: number;
+    target_reps?: string | null;
+    rest_seconds?: number | null;
+    cadence?: string | null;
+  }
+): Promise<{ success: boolean; error: string | null }> {
+  if (values.sets !== undefined && (values.sets < 1 || values.sets > 10)) {
+    return { success: false, error: 'Sets fuera de rango' };
+  }
+  if (values.rest_seconds != null && (values.rest_seconds < 0 || values.rest_seconds > 600)) {
+    return { success: false, error: 'El descanso debe estar entre 0 y 600 s' };
+  }
+
+  const { error } = await supabase.from('routines').update(values).eq('id', routineId);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, error: null };
+}
+
+// Las tres operaciones de abajo se hacían con varios UPDATE independientes:
+// si el segundo fallaba, el orden o el día quedaban a medias. Ahora son RPCs
+// transaccionales (`security invoker`, así que la RLS sigue aplicando).
+
 export async function swapRoutineOrder(
   routineId1: string,
-  sortOrder1: number,
-  routineId2: string,
-  sortOrder2: number
+  routineId2: string
 ): Promise<{ success: boolean; error: string | null }> {
-  const [res1, res2] = await Promise.all([
-    supabase.from('routines').update({ sort_order: sortOrder2 }).eq('id', routineId1),
-    supabase.from('routines').update({ sort_order: sortOrder1 }).eq('id', routineId2),
-  ]);
+  const { error } = await supabase.rpc('swap_routine_order', {
+    p_a: routineId1,
+    p_b: routineId2,
+  });
 
-  if (res1.error) return { success: false, error: res1.error.message };
-  if (res2.error) return { success: false, error: res2.error.message };
+  if (error) return { success: false, error: error.message };
   return { success: true, error: null };
 }
 
@@ -128,7 +137,7 @@ export async function copyRoutineFromDay(
 
   const { data: sourceRoutines, error: srcError } = await supabase
     .from('routines')
-    .select('exercise_id, sets')
+    .select('exercise_id, sets, target_reps, rest_seconds, cadence, superset_group, notes')
     .eq('day_of_week', sourceDayOfWeek)
     .eq('user_id', userId)
     .order('sort_order');
@@ -154,12 +163,18 @@ export async function copyRoutineFromDay(
     return { copiedCount: 0, error: 'Todos los ejercicios ya están en este día' };
   }
 
+  // Copia también la prescripción del entrenador, no solo el ejercicio y las series.
   const inserts = toCopy.map((r, i) => ({
     user_id: userId,
     day_of_week: targetDayOfWeek,
     exercise_id: r.exercise_id,
     sets: r.sets,
     sort_order: targetCurrentCount + i,
+    target_reps: r.target_reps,
+    rest_seconds: r.rest_seconds,
+    cadence: r.cadence,
+    superset_group: r.superset_group,
+    notes: r.notes,
   }));
 
   const { error: insertError } = await supabase.from('routines').insert(inserts);
@@ -171,77 +186,23 @@ export async function moveRoutineToDay(
   sourceDayOfWeek: number,
   targetDayOfWeek: number
 ): Promise<{ movedCount: number; error: string | null }> {
-  const userId = await getUserId();
+  const { data, error } = await supabase.rpc('move_routine_to_day', {
+    p_source: sourceDayOfWeek,
+    p_target: targetDayOfWeek,
+  });
 
-  const { data: sourceRoutines, error: srcError } = await supabase
-    .from('routines')
-    .select('id, exercise_id, sort_order')
-    .eq('day_of_week', sourceDayOfWeek)
-    .eq('user_id', userId)
-    .order('sort_order');
-
-  if (srcError) return { movedCount: 0, error: srcError.message };
-  if (!sourceRoutines || sourceRoutines.length === 0) {
-    return { movedCount: 0, error: 'El día origen no tiene ejercicios' };
-  }
-
-  const { data: targetRoutines, error: tgtError } = await supabase
-    .from('routines')
-    .select('exercise_id')
-    .eq('day_of_week', targetDayOfWeek)
-    .eq('user_id', userId);
-
-  if (tgtError) return { movedCount: 0, error: tgtError.message };
-
-  const existingIds = new Set((targetRoutines || []).map((r) => r.exercise_id));
-  let nextOrder = (targetRoutines || []).length;
-
-  // Reasigna al día destino los que no estén duplicados; elimina los repetidos del origen.
-  const ops = sourceRoutines.map((r) =>
-    existingIds.has(r.exercise_id)
-      ? supabase.from('routines').delete().eq('id', r.id)
-      : supabase
-          .from('routines')
-          .update({ day_of_week: targetDayOfWeek, sort_order: nextOrder++ })
-          .eq('id', r.id)
-  );
-
-  const results = await Promise.all(ops);
-  const failed = results.find((res) => res.error);
-  if (failed?.error) return { movedCount: 0, error: failed.error.message };
-
-  return { movedCount: sourceRoutines.length, error: null };
+  if (error) return { movedCount: 0, error: error.message };
+  if (!data) return { movedCount: 0, error: 'El día origen no tiene ejercicios' };
+  return { movedCount: data, error: null };
 }
 
 export async function swapRoutineDays(
   dayA: number,
   dayB: number
 ): Promise<{ success: boolean; error: string | null }> {
-  const userId = await getUserId();
+  const { data, error } = await supabase.rpc('swap_routine_days', { p_a: dayA, p_b: dayB });
 
-  const [resA, resB] = await Promise.all([
-    supabase.from('routines').select('id').eq('day_of_week', dayA).eq('user_id', userId),
-    supabase.from('routines').select('id').eq('day_of_week', dayB).eq('user_id', userId),
-  ]);
-
-  if (resA.error) return { success: false, error: resA.error.message };
-  if (resB.error) return { success: false, error: resB.error.message };
-
-  const idsA = (resA.data || []).map((r) => r.id);
-  const idsB = (resB.data || []).map((r) => r.id);
-
-  if (idsA.length === 0 && idsB.length === 0) {
-    return { success: false, error: 'Ninguno de los dos días tiene ejercicios' };
-  }
-
-  // Reasigna por lista de ids (sin colisiones) preservando el sort_order de cada día.
-  const updates = [];
-  if (idsA.length) updates.push(supabase.from('routines').update({ day_of_week: dayB }).in('id', idsA));
-  if (idsB.length) updates.push(supabase.from('routines').update({ day_of_week: dayA }).in('id', idsB));
-
-  const results = await Promise.all(updates);
-  const failed = results.find((res) => res.error);
-  if (failed?.error) return { success: false, error: failed.error.message };
-
+  if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: 'Ninguno de los dos días tiene ejercicios' };
   return { success: true, error: null };
 }

@@ -52,12 +52,12 @@ export default function StatsScreen() {
       style={s.container}
       contentContainerStyle={s.content}
       data={stats}
-      keyExtractor={(item) => item.exercise.id}
+      keyExtractor={(item) => item.exerciseId}
       renderItem={({ item }) => (
         <StatCard
           stat={item}
-          isExpanded={expandedId === item.exercise.id}
-          onToggle={() => handleToggle(item.exercise.id)}
+          isExpanded={expandedId === item.exerciseId}
+          onToggle={() => handleToggle(item.exerciseId)}
         />
       )}
     />

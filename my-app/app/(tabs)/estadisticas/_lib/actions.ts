@@ -1,79 +1,42 @@
 import { supabase } from '@/lib/supabase';
+import type { ExerciseStatsRow } from '@/types/database';
 import type { ExerciseStat } from './types';
 
-export async function fetchExerciseStats(): Promise<{
+/**
+ * Las estadísticas se agregan en Postgres, no en el cliente.
+ *
+ * Antes se traían los últimos 500 logs y se agrupaban acá: con este plan
+ * (80 series por semana) el tope se alcanzaba a las ~6 semanas y la historia
+ * quedaba truncada sin avisar.
+ */
+export async function fetchExerciseStats(sessions = 10): Promise<{
   data: ExerciseStat[];
   error: string | null;
 }> {
-  // Fetch exercises and logs in parallel
-  const [exRes, logsRes] = await Promise.all([
-    supabase.from('exercises').select('*').order('name'),
-    supabase.from('workout_logs').select('*').order('workout_date', { ascending: false }).limit(500),
-  ]);
+  const { data, error } = await supabase.rpc('exercise_stats', { p_sessions: sessions });
 
-  if (exRes.error) return { data: [], error: exRes.error.message };
-  if (!exRes.data || exRes.data.length === 0) return { data: [], error: null };
-  if (logsRes.error) return { data: [], error: logsRes.error.message };
+  if (error) return { data: [], error: error.message };
 
-  // Index logs by exercise_id in a single pass (O(n))
-  const logsByExercise = new Map<string, typeof logsRes.data>();
-  for (const log of logsRes.data || []) {
-    const existing = logsByExercise.get(log.exercise_id);
-    if (existing) {
-      existing.push(log);
-    } else {
-      logsByExercise.set(log.exercise_id, [log]);
-    }
-  }
-
-  const stats: ExerciseStat[] = [];
-
-  for (const exercise of exRes.data) {
-    const exerciseLogs = logsByExercise.get(exercise.id);
-    if (!exerciseLogs || exerciseLogs.length === 0) continue;
-
-    let maxWeight = 0;
-    const dateSet = new Set<string>();
-
-    for (const l of exerciseLogs) {
-      const w = Number(l.weight);
-      if (w > maxWeight) maxWeight = w;
-      dateSet.add(l.workout_date);
-    }
-
-    // Dates are already sorted desc from the query
-    const dates = [...dateSet];
-    const lastDate = dates[0];
-    let lastWeight = 0;
-    for (const l of exerciseLogs) {
-      if (l.workout_date !== lastDate) break;
-      const w = Number(l.weight);
-      if (w > lastWeight) lastWeight = w;
-    }
-
-    // Build recent logs — best set per date for last 10 sessions
-    const recentLogs = dates.slice(0, 10).map((date) => {
-      let bestWeight = 0;
-      let bestReps = 0;
-      for (const l of exerciseLogs) {
-        if (l.workout_date !== date) continue;
-        const w = Number(l.weight);
-        if (w > bestWeight) {
-          bestWeight = w;
-          bestReps = l.reps;
-        }
-      }
-      return { date, weight: bestWeight, reps: bestReps };
-    });
-
-    stats.push({
-      exercise,
-      lastWeight,
-      maxWeight,
-      totalSessions: dates.length,
-      recentLogs,
-    });
-  }
+  const stats = ((data ?? []) as ExerciseStatsRow[]).map((row) => ({
+    exerciseId: row.exercise_id,
+    name: row.name,
+    muscleGroup: row.muscle_group,
+    totalSessions: Number(row.total_sessions),
+    lastDate: row.last_date,
+    lastWeight: Number(row.last_weight),
+    maxWeight: Number(row.max_weight),
+    lastE1rm: Number(row.last_e1rm),
+    bestE1rm: Number(row.best_e1rm),
+    recent: (row.recent ?? []).map((r) => ({
+      date: r.date,
+      weight: Number(r.weight),
+      reps: Number(r.reps),
+      e1rm: Number(r.e1rm),
+      volume: Number(r.volume),
+      rpe: r.rpe === null ? null : Number(r.rpe),
+      sets: Number(r.sets),
+    })),
+  }));
 
   return { data: stats, error: null };
 }
