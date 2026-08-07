@@ -61,7 +61,8 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
           <Text style={s.title}>Exportar datos</Text>
           <Text style={s.subtitle}>
             CSV con todas las series y sesiones de cardio del rango, incluyendo lo prescrito
-            (reps objetivo, descanso, cadencia) junto a lo ejecutado.
+            (reps objetivo, descanso, cadencia) junto a lo ejecutado, y la hora de inicio, fin
+            y duración de cada jornada.
           </Text>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.presetRow}>

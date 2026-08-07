@@ -1,6 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '@/lib/supabase';
+import { deviceTimeZone } from '@/lib/date';
 import type { ExportRow } from '@/types/database';
 
 /** Orden de columnas del CSV. Coincide con lo que devuelve `export_training_data`. */
@@ -22,7 +23,11 @@ const COLUMNS: (keyof ExportRow)[] = [
   'cadencia',
   'super_serie',
   'fase',
+  'inicio_sesion',
+  'fin_sesion',
+  'duracion_sesion_min',
   'registrado_en',
+  'actualizado_en',
 ];
 
 /** Escapa un valor según RFC 4180. */
@@ -45,9 +50,11 @@ export async function fetchExportRows(
   from: string,
   to: string
 ): Promise<{ rows: ExportRow[]; error: string | null }> {
+  const timeZone = deviceTimeZone();
   const { data, error } = await supabase.rpc('export_training_data', {
     p_from: from,
     p_to: to,
+    ...(timeZone ? { p_tz: timeZone } : {}),
   });
 
   if (error) return { rows: [], error: error.message };
@@ -56,7 +63,8 @@ export async function fetchExportRows(
 
 /**
  * Exporta todo lo registrado en el rango como CSV y abre el diálogo de compartir.
- * Incluye lo prescrito junto a lo ejecutado, para poder comparar objetivo vs real.
+ * Incluye lo prescrito junto a lo ejecutado, para poder comparar objetivo vs real,
+ * y el inicio, fin y duración de cada jornada repetidos en sus filas.
  */
 export async function exportRangeToCsv(
   from: string,

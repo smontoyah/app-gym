@@ -39,8 +39,19 @@ export type CardioEntry = {
   log: CardioLog | null;
 };
 
+/**
+ * Ventana de la jornada: del primer input al último, cardio incluido.
+ * Es lo mismo que calcula `export_training_data` para el CSV.
+ */
+export type SessionWindow = {
+  start: string;
+  end: string;
+};
+
 export type DayWorkout = {
   blocks: WorkoutBlock[];
   cardio: CardioEntry;
   phase: TrainingPhase | null;
+  /** `null` mientras no se haya guardado nada ese día. */
+  session: SessionWindow | null;
 };

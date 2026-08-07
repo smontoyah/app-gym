@@ -37,7 +37,10 @@ export type WorkoutLog = {
   weight: number;
   /** Esfuerzo percibido 1-10. La fase se define por RPE, no solo por carga. */
   rpe: number | null;
+  /** Primer guardado de esta serie: es la marca que delimita la jornada. */
   created_at: string;
+  /** Último retoque (corrección de reps, peso o RPE). Lo pone un trigger. */
+  updated_at: string;
 };
 
 /** Mesociclo: «FASE – AJUSTE 1» y las que vengan después. */
@@ -70,6 +73,7 @@ export type CardioLog = {
   minutes: number;
   modality: string | null;
   created_at: string;
+  updated_at: string;
 };
 
 export type RoutineWithExercise = Routine & {
@@ -127,7 +131,16 @@ export type ExportRow = {
   cadencia: string | null;
   super_serie: string | null;
   fase: string | null;
+  /** Hora local (`p_tz`) del primer guardado de la fila. */
   registrado_en: string;
+  /** Hora local del último retoque de la fila. */
+  actualizado_en: string;
+  /** Primer input de la jornada, repetido en todas las filas de esa fecha. */
+  inicio_sesion: string | null;
+  /** Último input de la jornada. */
+  fin_sesion: string | null;
+  /** Minutos entre el primer y el último input de la jornada. */
+  duracion_sesion_min: number | null;
 };
 
 export type Database = {
@@ -319,7 +332,7 @@ export type Database = {
         Returns: PreviousSetRow[];
       };
       export_training_data: {
-        Args: { p_from: string; p_to: string };
+        Args: { p_from: string; p_to: string; p_tz?: string };
         Returns: ExportRow[];
       };
     };

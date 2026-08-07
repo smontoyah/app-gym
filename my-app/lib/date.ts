@@ -65,3 +65,34 @@ export function startOfMonthStr(): string {
   const now = new Date();
   return toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
 }
+
+/** «18:32» — hora local del dispositivo a partir de un timestamp ISO. */
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Minutos entre dos timestamps ISO. */
+export function minutesBetween(fromIso: string, toIso: string): number {
+  return (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 60000;
+}
+
+/** «1 h 13 min» · «45 min» */
+export function formatDuration(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return hours > 0 ? `${hours} h ${rest} min` : `${rest} min`;
+}
+
+/**
+ * Zona horaria del dispositivo, para que el CSV traiga horas locales y no UTC.
+ * Hermes puede venir sin datos de `Intl`; en ese caso decide el servidor.
+ */
+export function deviceTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}

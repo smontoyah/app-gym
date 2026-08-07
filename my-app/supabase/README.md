@@ -17,6 +17,7 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `routine_rpcs_and_stats` | `swap_routine_order`, `move_routine_to_day`, `swap_routine_days`, `exercise_stats` |
 | `export_rpc_and_cardio_seed` | `export_training_data` + cardio y fase del protocolo vigente |
 | `previous_sets_rpc` | `previous_sets`: última sesión previa por ejercicio |
+| `session_duration_timestamps` | `updated_at` + trigger en `workout_logs` y `cardio_logs`; `export_training_data` devuelve inicio, fin y duración de cada jornada en hora local (`p_tz`) |
 
 ## `seed/`
 

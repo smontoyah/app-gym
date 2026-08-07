@@ -3,14 +3,24 @@ import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet }
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
-import { addDays, dayOfWeek, DAY_NAMES_FULL, formatLong, isToday, todayStr } from '@/lib/date';
+import {
+  addDays,
+  dayOfWeek,
+  DAY_NAMES_FULL,
+  formatDuration,
+  formatLong,
+  formatTime,
+  isToday,
+  minutesBetween,
+  todayStr,
+} from '@/lib/date';
 import { fetchDayWorkout, saveCardioSession, saveWorkoutSet } from './_lib/actions';
 import { BlockCard } from './_components/block-card';
 import { CardioCard } from './_components/cardio-card';
 import { PhaseBanner } from './_components/phase-banner';
 import { RestTimer, type RestTarget } from './_components/rest-timer';
 import type { SetField } from './_components/set-row';
-import type { DayWorkout, ExerciseWithSets, WorkoutBlock } from './_lib/types';
+import type { DayWorkout, ExerciseWithSets, SessionWindow, WorkoutBlock } from './_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 const DEFAULT_REST_SECONDS = 90;
@@ -19,10 +29,29 @@ const EMPTY_WORKOUT: DayWorkout = {
   blocks: [],
   cardio: { plan: null, log: null },
   phase: null,
+  session: null,
 };
 
 function flatten(blocks: WorkoutBlock[]): ExerciseWithSets[] {
   return blocks.flatMap((b) => b.exercises);
+}
+
+/** Un bloque está hecho cuando no le queda ninguna serie sin guardar. */
+function isBlockDone(block: WorkoutBlock): boolean {
+  return block.exercises.every(
+    (e) => e.sets_data.length > 0 && e.sets_data.every((st) => st.saved)
+  );
+}
+
+/** Estira la ventana de la jornada con la hora que devolvió el servidor. */
+function extendSession(session: SessionWindow | null, at: string | null): SessionWindow | null {
+  if (!at) return session;
+  if (!session) return { start: at, end: at };
+  const stamp = Date.parse(at);
+  return {
+    start: stamp < Date.parse(session.start) ? at : session.start,
+    end: stamp > Date.parse(session.end) ? at : session.end,
+  };
 }
 
 /**
@@ -107,7 +136,14 @@ export default function WorkoutScreen() {
 
   const handleSaveSet = useCallback(
     async (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => {
-      const { success } = await saveWorkoutSet({ exerciseId, dateStr, setNumber, reps, weight, rpe });
+      const { success, loggedAt } = await saveWorkoutSet({
+        exerciseId,
+        dateStr,
+        setNumber,
+        reps,
+        weight,
+        rpe,
+      });
       if (!success) return;
 
       setWorkout((prev) => ({
@@ -118,6 +154,7 @@ export default function WorkoutScreen() {
             st.set_number === setNumber ? { ...st, saved: true } : st
           ),
         })),
+        session: extendSession(prev.session, loggedAt),
       }));
       setLastSaved({ exerciseId, at: Date.now() });
     },
@@ -152,6 +189,7 @@ export default function WorkoutScreen() {
             saved.includes(st.set_number) ? { ...st, saved: true } : st
           ),
         })),
+        session: results.reduce((acc, r) => extendSession(acc, r.loggedAt), prev.session),
       }));
       setLastSaved({ exerciseId, at: Date.now() });
     },
@@ -189,8 +227,24 @@ export default function WorkoutScreen() {
     return { completed, total: flat.length };
   }, [workout.blocks]);
 
+  // Lo que toca ahora, arriba: los bloques terminados bajan al final y los
+  // pendientes conservan el orden del plan. Es sólo el orden de pintado —
+  // `workout.blocks` guarda el orden real, del que depende `computeRest`.
+  // El distintivo «en curso» sólo tiene sentido en la jornada de hoy.
+  const ordered = useMemo(() => {
+    const pending = workout.blocks.filter((b) => !isBlockDone(b));
+    const done = workout.blocks.filter(isBlockDone);
+    return {
+      list: [...pending, ...done],
+      currentKey: isToday(dateStr) ? pending[0]?.key ?? null : null,
+    };
+  }, [workout.blocks, dateStr]);
+
   const dow = dayOfWeek(dateStr);
   const targetRpe = workout.phase?.rpe_target?.split('/')[0] ?? null;
+
+  const { session } = workout;
+  const elapsed = session ? minutesBetween(session.start, session.end) : 0;
 
   const header = (
     <>
@@ -224,6 +278,14 @@ export default function WorkoutScreen() {
             {progress.completed} de {progress.total} ejercicios completados
           </Text>
         </View>
+      )}
+
+      {session && (
+        <Text style={s.sessionText}>
+          {elapsed >= 1
+            ? `Sesión ${formatTime(session.start)} – ${formatTime(session.end)} · ${formatDuration(elapsed)}`
+            : `Sesión iniciada ${formatTime(session.start)}`}
+        </Text>
       )}
 
       <RestTimer target={rest} onStop={() => setRest(null)} />
@@ -264,7 +326,7 @@ export default function WorkoutScreen() {
     <FlatList
       style={s.container}
       contentContainerStyle={s.content}
-      data={workout.blocks}
+      data={ordered.list}
       keyExtractor={(block) => block.key}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={header}
@@ -272,6 +334,7 @@ export default function WorkoutScreen() {
       renderItem={({ item }) => (
         <BlockCard
           block={item}
+          current={item.key === ordered.currentKey}
           targetRpe={targetRpe}
           onSetValueChange={handleSetValueChange}
           onSaveSet={handleSaveSet}
@@ -311,6 +374,7 @@ const createStyles = (c: AppColorScheme) =>
     },
     progressBarFill: { height: '100%', backgroundColor: c.success, borderRadius: 3 },
     progressText: { color: c.textSecondary, fontSize: 13 },
+    sessionText: { color: c.textMuted, fontSize: 12, textAlign: 'center', marginBottom: 12 },
     restDay: { alignItems: 'center', paddingVertical: 24 },
     restDayIcon: { fontSize: 40, marginBottom: 10 },
     restDayText: { color: c.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },

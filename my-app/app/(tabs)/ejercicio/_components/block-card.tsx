@@ -8,6 +8,8 @@ import type { AppColorScheme } from '@/constants/theme';
 
 type BlockCardProps = {
   block: WorkoutBlock;
+  /** Primer bloque con series pendientes: el que toca ahora. */
+  current: boolean;
   targetRpe: string | null;
   onSetValueChange: (exerciseId: string, setIndex: number, field: SetField, value: string) => void;
   onSaveSet: (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => void;
@@ -23,6 +25,7 @@ type BlockCardProps = {
  */
 export const BlockCard = memo(function BlockCard({
   block,
+  current,
   targetRpe,
   onSetValueChange,
   onSaveSet,
@@ -34,7 +37,14 @@ export const BlockCard = memo(function BlockCard({
   const isSuperset = block.supersetGroup !== null && block.exercises.length > 1;
 
   return (
-    <View style={[s.card, isSuperset && s.superset]}>
+    <View style={[s.card, isSuperset && s.superset, current && s.current]}>
+      {current && (
+        <View style={s.currentHeader}>
+          <View style={s.currentDot} />
+          <Text style={s.currentLabel}>En curso</Text>
+        </View>
+      )}
+
       {isSuperset && (
         <View style={s.supersetHeader}>
           <Text style={s.supersetTitle}>Super serie {block.supersetGroup}</Text>
@@ -62,6 +72,10 @@ const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
     card: { backgroundColor: c.surface, borderRadius: 12, padding: 16, marginBottom: 16 },
     superset: { borderWidth: 1, borderColor: c.warning },
+    current: { borderWidth: 1, borderColor: c.accent },
+    currentHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+    currentDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.accent },
+    currentLabel: { color: c.accent, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
     supersetHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12 },
     supersetTitle: { color: c.warning, fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
     supersetHint: { color: c.textMuted, fontSize: 11 },

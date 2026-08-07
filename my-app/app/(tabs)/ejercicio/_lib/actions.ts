@@ -2,7 +2,14 @@ import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/lib/auth-helpers';
 import { dayOfWeek } from '@/lib/date';
 import type { PreviousSetRow, RoutineWithExercise } from '@/types/database';
-import type { CardioEntry, DayWorkout, ExerciseWithSets, SetLog, WorkoutBlock } from './types';
+import type {
+  CardioEntry,
+  DayWorkout,
+  ExerciseWithSets,
+  SessionWindow,
+  SetLog,
+  WorkoutBlock,
+} from './types';
 
 /** Incremento mínimo razonable en gimnasio (mancuernas / stack de máquina). */
 const LOAD_STEP_KG = 2.5;
@@ -66,6 +73,19 @@ function groupIntoBlocks(exercises: ExerciseWithSets[]): WorkoutBlock[] {
   return blocks;
 }
 
+/**
+ * Del primer input al último. Se mira `created_at` y no `updated_at`: corregir
+ * una serie días después no debería estirar la duración de aquella sesión.
+ * Misma regla que aplica `export_training_data`, para que app y CSV coincidan.
+ */
+function sessionWindow(timestamps: (string | null | undefined)[]): SessionWindow | null {
+  const stamps = timestamps
+    .filter((t): t is string => !!t)
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
+  if (stamps.length === 0) return null;
+  return { start: stamps[0], end: stamps[stamps.length - 1] };
+}
+
 export async function fetchDayWorkout(
   dateStr: string
 ): Promise<{ data: DayWorkout; error: string | null }> {
@@ -75,6 +95,7 @@ export async function fetchDayWorkout(
     blocks: [],
     cardio: { plan: null, log: null },
     phase: null,
+    session: null,
   };
 
   const [routinesRes, cardioPlanRes, cardioLogRes, phaseRes] = await Promise.all([
@@ -115,7 +136,8 @@ export async function fetchDayWorkout(
 
   const routines = (routinesRes.data ?? []) as RoutineWithExercise[];
   if (routines.length === 0) {
-    return { data: { blocks: [], cardio, phase }, error: null };
+    const session = sessionWindow([cardio.log?.created_at]);
+    return { data: { blocks: [], cardio, phase, session }, error: null };
   }
 
   const exerciseIds = routines.map((r) => r.exercise_id);
@@ -129,7 +151,9 @@ export async function fetchDayWorkout(
     supabase.rpc('previous_sets', { p_before: dateStr, p_exercise_ids: exerciseIds }),
   ]);
 
-  if (logsRes.error) return { data: { blocks: [], cardio, phase }, error: logsRes.error.message };
+  if (logsRes.error) {
+    return { data: { blocks: [], cardio, phase, session: null }, error: logsRes.error.message };
+  }
 
   const previousByExercise = new Map<string, PreviousSetRow[]>();
   for (const row of (previousRes.data ?? []) as PreviousSetRow[]) {
@@ -167,8 +191,20 @@ export async function fetchDayWorkout(
     };
   });
 
-  return { data: { blocks: groupIntoBlocks(exercises), cardio, phase }, error: null };
+  const session = sessionWindow([
+    ...(logsRes.data ?? []).map((l) => l.created_at),
+    cardio.log?.created_at,
+  ]);
+
+  return { data: { blocks: groupIntoBlocks(exercises), cardio, phase, session }, error: null };
 }
+
+/** `loggedAt` es la hora del servidor: con ella se mueve el fin de la jornada. */
+export type SaveSetResult = {
+  success: boolean;
+  error: string | null;
+  loggedAt: string | null;
+};
 
 export async function saveWorkoutSet(params: {
   exerciseId: string;
@@ -177,39 +213,43 @@ export async function saveWorkoutSet(params: {
   reps: string;
   weight: string;
   rpe: string;
-}): Promise<{ success: boolean; error: string | null }> {
+}): Promise<SaveSetResult> {
   const { exerciseId, dateStr, setNumber, reps, weight, rpe } = params;
 
-  if (!reps || !weight) return { success: false, error: 'Faltan datos' };
+  if (!reps || !weight) return { success: false, error: 'Faltan datos', loggedAt: null };
 
   const parsedReps = parseInt(reps, 10);
   const parsedWeight = parseFloat(weight);
   if (!Number.isFinite(parsedReps) || !Number.isFinite(parsedWeight)) {
-    return { success: false, error: 'Valores inválidos' };
+    return { success: false, error: 'Valores inválidos', loggedAt: null };
   }
 
   const parsedRpe = rpe ? parseFloat(rpe) : NaN;
   if (rpe && (!Number.isFinite(parsedRpe) || parsedRpe < 1 || parsedRpe > 10)) {
-    return { success: false, error: 'El RPE debe estar entre 1 y 10' };
+    return { success: false, error: 'El RPE debe estar entre 1 y 10', loggedAt: null };
   }
 
   const userId = await getUserId();
 
-  const { error } = await supabase.from('workout_logs').upsert(
-    {
-      user_id: userId,
-      exercise_id: exerciseId,
-      workout_date: dateStr,
-      set_number: setNumber,
-      reps: parsedReps,
-      weight: parsedWeight,
-      rpe: rpe ? parsedRpe : null,
-    },
-    { onConflict: 'exercise_id,workout_date,set_number', ignoreDuplicates: false }
-  );
+  const { data, error } = await supabase
+    .from('workout_logs')
+    .upsert(
+      {
+        user_id: userId,
+        exercise_id: exerciseId,
+        workout_date: dateStr,
+        set_number: setNumber,
+        reps: parsedReps,
+        weight: parsedWeight,
+        rpe: rpe ? parsedRpe : null,
+      },
+      { onConflict: 'exercise_id,workout_date,set_number', ignoreDuplicates: false }
+    )
+    .select('created_at')
+    .single();
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, error: null };
+  if (error) return { success: false, error: error.message, loggedAt: null };
+  return { success: true, error: null, loggedAt: data?.created_at ?? null };
 }
 
 export async function saveCardioSession(params: {
