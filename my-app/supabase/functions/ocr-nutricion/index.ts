@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.5-flash-lite';
@@ -6,6 +7,10 @@ const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.5-flash-lite';
 // Tope defensivo: el cliente ya comprime a ~180 KB. Esto solo evita que una
 // imagen sin comprimir dispare el costo o agote la cuota diaria.
 const MAX_BASE64_CHARS = 3_000_000; // ~2.2 MB por imagen
+
+// Escaneos por usuario y por día. La cuota de Gemini es una sola para toda la
+// app, así que este tope existe para que un usuario no se la lleve entera.
+const DAILY_LIMIT = Number(Deno.env.get('OCR_DAILY_LIMIT') ?? '40');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -159,6 +164,28 @@ Reglas estrictas:
    afirmes ahí que algo "se ve" o "es visible" si en realidad lo dedujiste: si
    no lo leíste carácter por carácter, no lo viste.`;
 
+/**
+ * Devuelve el `sub` del JWT. La plataforma ya validó la firma (verify_jwt está
+ * activo), así que acá basta con leer el claim: llamar a auth.getUser() sería
+ * una ida y vuelta de red extra por escaneo sin ganar nada de seguridad.
+ *
+ * Como la anon key no trae `sub`, esto además exige una sesión real: ya no
+ * alcanza con la llave pública que va embebida en la app.
+ */
+function userIdFromJwt(header: string | null): string | null {
+  if (!header?.startsWith('Bearer ')) return null;
+  const payload = header.slice(7).split('.')[1];
+  if (!payload) return null;
+  try {
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const claims = JSON.parse(atob(padded));
+    return typeof claims?.sub === 'string' ? claims.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -181,6 +208,35 @@ Deno.serve(async (req: Request) => {
     if (b64 && b64.length > MAX_BASE64_CHARS) {
       return json({ error: `La imagen "${name}" es demasiado grande; comprímela antes de enviarla` }, 413);
     }
+  }
+
+  const userId = userIdFromJwt(req.headers.get('Authorization'));
+  if (!userId) {
+    return json({ error: 'Se necesita una sesión iniciada para escanear.' }, 401);
+  }
+
+  // La cuota se cobra ANTES de llamar a Gemini: cobrarla después dejaría que
+  // una ráfaga de peticiones simultáneas gaste la cuota compartida antes de
+  // que el contador alcance a reaccionar. El costo es que un fallo de Gemini
+  // igual consume un escaneo del día, que es el lado seguro del error.
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  );
+  const { data: scansToday, error: quotaError } = await admin.rpc('bump_ocr_usage', {
+    p_user: userId,
+    p_limit: DAILY_LIMIT,
+  });
+
+  if (quotaError) {
+    console.error('bump_ocr_usage', quotaError.message);
+    return json({ error: 'No se pudo verificar la cuota de escaneos.' }, 500);
+  }
+  if (scansToday === -1) {
+    return json(
+      { error: `Llegaste al tope de ${DAILY_LIMIT} escaneos por hoy. Se reinicia mañana.` },
+      429,
+    );
   }
 
   // El orden importa: el prompt describe la primera imagen como la tabla.
@@ -243,6 +299,8 @@ Deno.serve(async (req: Request) => {
     meta: {
       model: MODEL,
       images: front ? 2 : 1,
+      scans_today: scansToday,
+      daily_limit: DAILY_LIMIT,
       elapsed_ms: Date.now() - started,
       usage: payload?.usageMetadata ?? null,
     },

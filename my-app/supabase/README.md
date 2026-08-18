@@ -20,6 +20,33 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `session_duration_timestamps` | `updated_at` + trigger en `workout_logs` y `cardio_logs`; `export_training_data` devuelve inicio, fin y duración de cada jornada en hora local (`p_tz`) |
 | `stats_date_ranges_and_summary` | `exercise_stats` pasa a recibir un rango (`p_from`, `p_to`) y separa lo del período del récord de siempre; nueva `training_summary` con totales del período y del anterior, serie por día, balance por grupo muscular, récords y ejercicios de la rutina sin registrar |
 | `nutrition_module` | Módulo de nutrición: `food_products` (catálogo, macros **por 100 g** + `ocr_raw` con la respuesta cruda del modelo), `nutrition_logs` (qué se comió y cuántos gramos), `ocr_usage` (cuota diaria de escaneos). Bucket privado `nutrition` con política por carpeta `{user_id}/…` |
+| `recipes_goals_and_macro_views` | `recipes` + `recipe_items` (preparados hechos de productos del catálogo), `nutrition_goals` (meta diaria, una fila por usuario). `nutrition_logs` pasa a aceptar producto **o** receta. Vistas `recipe_nutrition` y `nutrition_log_macros`, ambas `security_invoker`, que resuelven los macros ya escalados |
+| `ocr_usage_limit_rpc` | `bump_ocr_usage(p_user, p_limit)`: suma un escaneo al contador diario y devuelve el total, o `-1` si ya pasó el tope. Incremento y verificación en la misma sentencia |
+
+### La cuota de escaneos
+
+La API key de Gemini es una sola para toda la app: su límite diario se reparte
+entre todos los usuarios. `bump_ocr_usage` incrementa y verifica en una sola
+sentencia (`insert … on conflict do update … where scans < p_limit`); partirlo
+en leer-comparar-escribir abriría una ventana donde dos peticiones simultáneas
+leen el mismo valor y ambas pasan el tope.
+
+La tabla `ocr_usage` no tiene política de escritura a propósito: solo la escribe
+la Edge Function con `service_role`. Si el cliente pudiera tocar su contador, el
+límite no limitaría nada.
+
+### El peso cocido de las recetas
+
+`recipes.yield_g` es el peso del preparado **terminado, en la balanza**, y no la
+suma de sus ingredientes. Al cocinar se evapora agua (un guiso pesa menos de lo
+que entró) o se absorbe (el arroz pesa más). Una porción servida se escala
+contra ese peso real: `macros_totales × gramos_servidos / total_g`.
+
+Si `yield_g` queda en null se usa la suma de ingredientes, que es lo correcto
+para preparados en frío —una ensalada, un batido— donde no hay pérdida. Usar la
+suma cuando sí hubo cocción subestima los macros de forma sistemática: en el
+caso de prueba (130 g de ingredientes que rinden 120 g) el error era del 8% en
+cada comida.
 
 ## `functions/`
 

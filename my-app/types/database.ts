@@ -76,6 +76,159 @@ export type CardioLog = {
   updated_at: string;
 };
 
+/**
+ * Producto del catálogo de nutrición.
+ * Las macros son SIEMPRE por 100 g: es la única base que permite sumar
+ * productos distintos y escalar por los gramos realmente consumidos.
+ */
+export type FoodProduct = {
+  id: string;
+  user_id: string;
+  name: string;
+  brand: string | null;
+  package_size_g: number | null;
+  serving_size_g: number | null;
+  /** Literal impreso en la etiqueta: "1 cucharada (15 g)". */
+  serving_label: string | null;
+  servings_per_package: number | null;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  sugars_g: number | null;
+  added_sugars_g: number | null;
+  fiber_g: number | null;
+  fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_mg: number | null;
+  sodium_mg: number | null;
+  /** Ruta dentro del bucket privado, no URL: las firmadas caducan. */
+  label_photo_path: string | null;
+  front_photo_path: string | null;
+  /** Respuesta cruda del OCR: permite reprocesar sin volver a fotografiar. */
+  ocr_raw: unknown | null;
+  ocr_model: string | null;
+  ocr_confidence: number | null;
+  /** El usuario revisó y confirmó lo que extrajo el modelo. */
+  verified: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MealSlot = 'desayuno' | 'almuerzo' | 'cena' | 'snack';
+
+export type NutritionLog = {
+  id: string;
+  user_id: string;
+  /** Exactamente uno de product_id / recipe_id está lleno. */
+  product_id: string | null;
+  recipe_id: string | null;
+  /** Fecha local del usuario, no UTC. */
+  logged_on: string;
+  meal: MealSlot;
+  quantity_g: number;
+  note: string | null;
+  created_at: string;
+};
+
+export type NutritionLogWithProduct = NutritionLog & {
+  food_products: FoodProduct;
+};
+
+/** Contador diario de escaneos. Solo lo escribe la Edge Function. */
+export type OcrUsage = {
+  user_id: string;
+  used_on: string;
+  scans: number;
+};
+
+export type Recipe = {
+  id: string;
+  user_id: string;
+  name: string;
+  notes: string | null;
+  /**
+   * Peso del preparado terminado, en la balanza. NO es la suma de los
+   * ingredientes: al cocinar se evapora agua (un guiso pesa menos) o se
+   * absorbe (el arroz pesa más). Es la base contra la que se escala una
+   * porción servida. Si es null se usa la suma de ingredientes, que es lo
+   * correcto para preparados en frío donde no hay pérdida.
+   */
+  yield_g: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecipeItem = {
+  id: string;
+  user_id: string;
+  recipe_id: string;
+  product_id: string;
+  quantity_g: number;
+  sort_order: number;
+  created_at: string;
+};
+
+export type RecipeItemWithProduct = RecipeItem & {
+  food_products: FoodProduct;
+};
+
+/** Fila de la vista `recipe_nutrition`: macros totales del preparado. */
+export type RecipeNutrition = {
+  recipe_id: string;
+  user_id: string;
+  name: string;
+  yield_g: number | null;
+  ingredients_g: number;
+  /** yield_g si se midió, si no la suma de ingredientes. */
+  total_g: number;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  sugars_g: number | null;
+  added_sugars_g: number | null;
+  fiber_g: number | null;
+  fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_mg: number | null;
+  sodium_mg: number | null;
+};
+
+/** Fila de la vista `nutrition_log_macros`: un renglón del diario ya resuelto. */
+export type NutritionLogMacros = {
+  id: string;
+  user_id: string;
+  logged_on: string;
+  meal: MealSlot;
+  quantity_g: number;
+  note: string | null;
+  created_at: string;
+  product_id: string | null;
+  recipe_id: string | null;
+  source_name: string;
+  source_type: 'producto' | 'receta';
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  sugars_g: number | null;
+  added_sugars_g: number | null;
+  fiber_g: number | null;
+  fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_mg: number | null;
+  sodium_mg: number | null;
+};
+
+/** Meta diaria de macros. Una fila por usuario, se edita a mano. */
+export type NutritionGoals = {
+  user_id: string;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  updated_at: string;
+};
+
 export type RoutineWithExercise = Routine & {
   exercises: Exercise;
 };
@@ -360,8 +513,174 @@ export type Database = {
         };
         Relationships: [];
       };
+      food_products: {
+        Row: FoodProduct;
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          brand?: string | null;
+          package_size_g?: number | null;
+          serving_size_g?: number | null;
+          serving_label?: string | null;
+          servings_per_package?: number | null;
+          energy_kcal?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          sugars_g?: number | null;
+          added_sugars_g?: number | null;
+          fiber_g?: number | null;
+          fat_g?: number | null;
+          saturated_fat_g?: number | null;
+          trans_fat_mg?: number | null;
+          sodium_mg?: number | null;
+          label_photo_path?: string | null;
+          front_photo_path?: string | null;
+          ocr_raw?: unknown | null;
+          ocr_model?: string | null;
+          ocr_confidence?: number | null;
+          verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          brand?: string | null;
+          package_size_g?: number | null;
+          serving_size_g?: number | null;
+          serving_label?: string | null;
+          servings_per_package?: number | null;
+          energy_kcal?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          sugars_g?: number | null;
+          added_sugars_g?: number | null;
+          fiber_g?: number | null;
+          fat_g?: number | null;
+          saturated_fat_g?: number | null;
+          trans_fat_mg?: number | null;
+          sodium_mg?: number | null;
+          label_photo_path?: string | null;
+          front_photo_path?: string | null;
+          ocr_raw?: unknown | null;
+          ocr_model?: string | null;
+          ocr_confidence?: number | null;
+          verified?: boolean;
+        };
+        Relationships: [];
+      };
+      nutrition_logs: {
+        Row: NutritionLog;
+        Insert: {
+          id?: string;
+          user_id: string;
+          product_id?: string | null;
+          recipe_id?: string | null;
+          logged_on: string;
+          meal: MealSlot;
+          quantity_g: number;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          product_id?: string | null;
+          recipe_id?: string | null;
+          logged_on?: string;
+          meal?: MealSlot;
+          quantity_g?: number;
+          note?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'nutrition_logs_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'food_products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'nutrition_logs_recipe_id_fkey';
+            columns: ['recipe_id'];
+            isOneToOne: false;
+            referencedRelation: 'recipes';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      ocr_usage: {
+        Row: OcrUsage;
+        Insert: { user_id: string; used_on: string; scans?: number };
+        Update: { scans?: number };
+        Relationships: [];
+      };
+      recipes: {
+        Row: Recipe;
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          notes?: string | null;
+          yield_g?: number | null;
+        };
+        Update: {
+          name?: string;
+          notes?: string | null;
+          yield_g?: number | null;
+        };
+        Relationships: [];
+      };
+      recipe_items: {
+        Row: RecipeItem;
+        Insert: {
+          id?: string;
+          user_id: string;
+          recipe_id: string;
+          product_id: string;
+          quantity_g: number;
+          sort_order?: number;
+        };
+        Update: { quantity_g?: number; sort_order?: number };
+        Relationships: [
+          {
+            foreignKeyName: 'recipe_items_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'food_products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recipe_items_recipe_id_fkey';
+            columns: ['recipe_id'];
+            isOneToOne: false;
+            referencedRelation: 'recipes';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      nutrition_goals: {
+        Row: NutritionGoals;
+        Insert: {
+          user_id: string;
+          energy_kcal?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          fiber_g?: number | null;
+        };
+        Update: {
+          energy_kcal?: number | null;
+          protein_g?: number | null;
+          carbs_g?: number | null;
+          fat_g?: number | null;
+          fiber_g?: number | null;
+        };
+        Relationships: [];
+      };
     };
-    Views: {};
+    Views: {
+      recipe_nutrition: { Row: RecipeNutrition; Relationships: [] };
+      nutrition_log_macros: { Row: NutritionLogMacros; Relationships: [] };
+    };
     Functions: {
       swap_routine_order: {
         Args: { p_a: string; p_b: string };

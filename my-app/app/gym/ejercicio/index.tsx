@@ -314,7 +314,7 @@ export default function WorkoutScreen() {
               : 'Configurá tu rutina en la pestaña "Rutinas".'}
           </Text>
           {!workout.cardio.plan && (
-            <TouchableOpacity style={s.emptyBtn} onPress={() => router.push('/(tabs)/configuracion')}>
+            <TouchableOpacity style={s.emptyBtn} onPress={() => router.push('/gym/configuracion')}>
               <Text style={s.emptyBtnText}>Ir a Rutinas</Text>
             </TouchableOpacity>
           )}

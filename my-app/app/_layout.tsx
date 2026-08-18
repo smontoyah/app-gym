@@ -49,7 +49,9 @@ function RootNavigator() {
     <ThemeProvider value={navTheme}>
       <Stack>
         <Stack.Protected guard={isLoggedIn}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="gym" options={{ headerShown: false }} />
+          <Stack.Screen name="nutricion" options={{ headerShown: false }} />
+          <Stack.Screen name="ajustes" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack.Protected>
         <Stack.Protected guard={!isLoggedIn}>
