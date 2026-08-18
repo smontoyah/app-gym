@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, Modal, KeyboardAvoidingView, Platform,
+  Alert, ActivityIndicator, Modal, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, Recipe, RecipeItemWithProduct, RecipeNutrition } from '@/types/database';
 import { fetchProducts, parseNum } from '@/lib/nutricion/actions';
@@ -17,6 +19,9 @@ export default function RecetaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const keyboardHeight = useKeyboardHeight();
+  // El diálogo del Modal se encoge solo en Android; en iOS hay que apartarlo.
+  const sheetInset = Platform.OS === 'ios' ? keyboardHeight : 0;
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [items, setItems] = useState<RecipeItemWithProduct[]>([]);
@@ -123,8 +128,8 @@ export default function RecetaScreen() {
   if (loading) return <ActivityIndicator style={s.loader} color={colors.accent} />;
 
   return (
-    <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={s.flex} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <View style={s.flex}>
+      <KeyboardAwareScrollView style={s.flex} contentContainerStyle={s.content}>
         <View style={s.topBar}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={s.back}>‹ Recetas</Text>
@@ -207,11 +212,11 @@ export default function RecetaScreen() {
             Tocá un ingrediente para cambiar la cantidad, mantené pulsado para quitarlo.
           </Text>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <Modal visible={picking} animationType="slide" transparent onRequestClose={() => setPicking(false)}>
-        <View style={s.backdrop}>
-          <View style={s.sheet}>
+        <View style={[s.backdrop, { paddingBottom: sheetInset }]}>
+          <View style={[s.sheet, !pending && s.sheetSearching]}>
             <View style={s.sheetHeader}>
               <TouchableOpacity onPress={closeSheet}>
                 <Text style={s.back}>Cancelar</Text>
@@ -231,7 +236,7 @@ export default function RecetaScreen() {
                   placeholder="Buscar en el catálogo…"
                   placeholderTextColor={colors.placeholder}
                 />
-                <ScrollView style={s.sheetList} keyboardShouldPersistTaps="handled">
+                <ScrollView style={s.searchList} keyboardShouldPersistTaps="handled">
                   {available.length === 0 ? (
                     <Text style={s.empty}>
                       {products.length === 0
@@ -273,7 +278,7 @@ export default function RecetaScreen() {
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -322,6 +327,8 @@ const createStyles = (c: AppColorScheme) =>
       backgroundColor: c.background, borderTopLeftRadius: 18, borderTopRightRadius: 18,
       maxHeight: '85%', paddingBottom: 20,
     },
+    /** Buscando, la hoja no se encoge con los resultados: la lista se volvía ilegible. */
+    sheetSearching: { height: '85%' },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
     sheetTitle: { color: c.text, fontSize: 16, fontWeight: '700' },
     search: {
@@ -329,6 +336,7 @@ const createStyles = (c: AppColorScheme) =>
       paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 16, color: c.text, fontSize: 15,
     },
     sheetList: { paddingHorizontal: 16, marginTop: 12 },
+    searchList: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
     empty: { color: c.textMuted, fontSize: 13, textAlign: 'center', marginTop: 24 },
     pendingName: { color: c.text, fontSize: 18, fontWeight: '700', marginBottom: 6 },
     gramsInput: {

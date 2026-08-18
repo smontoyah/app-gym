@@ -4,6 +4,7 @@ import {
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { supabase } from '@/lib/supabase';
 import type { AppColorScheme } from '@/constants/theme';
 
@@ -49,7 +50,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={s.container}>
+    <KeyboardAwareScrollView style={s.screen} contentContainerStyle={s.container}>
       <Text style={s.title}>GymApp</Text>
       <Text style={s.subtitle}>
         {isRegister ? 'Creá tu cuenta' : 'Ingresá para continuar'}
@@ -72,13 +73,14 @@ export default function LoginScreen() {
           <Text style={s.switchLink}>{isRegister ? 'Iniciá sesión' : 'Creá una'}</Text>
         </Text>
       </TouchableOpacity>
-    </View>
+    </KeyboardAwareScrollView>
   );
 }
 
 const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.background, justifyContent: 'center', padding: 24 },
+    screen: { flex: 1, backgroundColor: c.background },
+    container: { flexGrow: 1, justifyContent: 'center', padding: 24 },
     title: { color: c.text, fontSize: 32, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
     subtitle: { color: c.textSecondary, fontSize: 16, textAlign: 'center', marginBottom: 32 },
     input: { backgroundColor: c.surface, borderRadius: 12, color: c.text, fontSize: 16, padding: 16, marginBottom: 12 },

@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { addDays, startOfMonthStr, todayStr } from '@/lib/date';
 import { exportRangeToCsv } from '../_lib/export';
 import type { AppColorScheme } from '@/constants/theme';
@@ -34,6 +36,9 @@ type ExportModalProps = {
 export function ExportModal({ visible, onClose }: ExportModalProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  // Android encoge el diálogo solo; en iOS lo centramos en el espacio libre.
+  const keyboardHeight = useKeyboardHeight();
+  const overlayInset = Platform.OS === 'ios' ? keyboardHeight : 0;
 
   const [from, setFrom] = useState(() => addDays(todayStr(), -30));
   const [to, setTo] = useState(todayStr);
@@ -56,7 +61,7 @@ export function ExportModal({ visible, onClose }: ExportModalProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.overlay}>
+      <View style={[s.overlay, { paddingBottom: 20 + overlayInset }]}>
         <View style={s.sheet}>
           <Text style={s.title}>Exportar datos</Text>
           <Text style={s.subtitle}>

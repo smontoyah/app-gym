@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import { PhotoSlot } from '@/components/nutricion/photo-slot';
 import { Field } from '@/components/nutricion/field';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nutricion/scan';
 import { saveProduct } from '@/lib/nutricion/actions';
 import {
@@ -96,118 +97,114 @@ export default function EscanearScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={s.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={s.flex} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <View style={s.topBar}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.cancel}>Cancelar</Text>
+    <KeyboardAwareScrollView style={s.flex} contentContainerStyle={s.content}>
+      <View style={s.topBar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={s.cancel}>Cancelar</Text>
+        </TouchableOpacity>
+        <Text style={s.screenTitle}>{reviewing ? 'Revisar' : 'Escanear producto'}</Text>
+        <View style={s.spacer} />
+      </View>
+
+      {!reviewing && (
+        <>
+          <PhotoSlot
+            title="1 · Tabla nutricional"
+            hint="Encuadrá la tabla completa, lo más de frente posible."
+            shot={label}
+            disabled={scanning}
+            onPick={pick('label')}
+            onClear={() => setLabel(null)}
+          />
+          <PhotoSlot
+            title="2 · Frente del empaque"
+            hint="Para reconocerlo en el estante, y de acá salen la marca y el nombre."
+            shot={front}
+            disabled={scanning}
+            onPick={pick('front')}
+            onClear={() => setFront(null)}
+          />
+
+          <TouchableOpacity
+            style={[s.primary, (!label || !front || scanning) && s.disabled]}
+            disabled={!label || !front || scanning}
+            onPress={handleScan}>
+            {scanning ? (
+              <View style={s.row}>
+                <ActivityIndicator color={colors.accentText} />
+                <Text style={s.primaryText}>  Leyendo la etiqueta…</Text>
+              </View>
+            ) : (
+              <Text style={s.primaryText}>Leer etiqueta</Text>
+            )}
           </TouchableOpacity>
-          <Text style={s.screenTitle}>{reviewing ? 'Revisar' : 'Escanear producto'}</Text>
-          <View style={s.spacer} />
-        </View>
 
-        {!reviewing && (
-          <>
-            <PhotoSlot
-              title="1 · Tabla nutricional"
-              hint="Encuadrá la tabla completa, lo más de frente posible."
-              shot={label}
-              disabled={scanning}
-              onPick={pick('label')}
-              onClear={() => setLabel(null)}
+          {!label || !front ? (
+            <Text style={s.footnote}>Hacen falta las dos fotos.</Text>
+          ) : null}
+        </>
+      )}
+
+      {reviewing && ocr && (
+        <>
+          {derived && (
+            <View style={[s.banner, s.bannerWarn]}>
+              <Text style={s.bannerText}>
+                La etiqueta solo traía la columna por porción. Los valores de abajo se
+                convirtieron a 100 g usando la porción de {ocr.serving_size_g} g.
+              </Text>
+            </View>
+          )}
+          {!ocr.brand && ocr.brand_visible_text && (
+            <View style={s.banner}>
+              <Text style={s.bannerText}>
+                No se pudo leer la marca completa; en el logo se alcanza a ver
+                “{ocr.brand_visible_text}”. Completala vos.
+              </Text>
+            </View>
+          )}
+          {ocr.notes && (
+            <View style={s.banner}>
+              <Text style={s.bannerText}>{ocr.notes}</Text>
+            </View>
+          )}
+
+          <Text style={s.section}>Producto</Text>
+          <Field label="Nombre" value={draft.name} onChange={set('name')} flagged={flagged('product_name')} />
+          <Field label="Marca" value={draft.brand} onChange={set('brand')} flagged={flagged('brand')} placeholder="Sin marca" />
+          <Field label="Porción (como dice la etiqueta)" value={draft.serving_label} onChange={set('serving_label')} placeholder="1 cucharada (15 g)" />
+          <Field label="Gramos por porción" value={draft.serving_size_g} onChange={set('serving_size_g')} numeric suffix="g" flagged={flagged('serving_size')} />
+          <Field label="Contenido del envase" value={draft.package_size_g} onChange={set('package_size_g')} numeric suffix="g" />
+          <Field label="Porciones por envase" value={draft.servings_per_package} onChange={set('servings_per_package')} numeric />
+
+          <Text style={s.section}>Por 100 g</Text>
+          <Text style={s.sectionHint}>
+            Todo se guarda por 100 g: es la única base que deja sumar productos distintos
+            y escalar por los gramos que realmente comas.
+          </Text>
+          {MACRO_FIELDS.map((f) => (
+            <Field
+              key={f}
+              label={MACRO_LABELS[f]}
+              value={draft[f]}
+              onChange={set(f)}
+              numeric
+              flagged={flagged(f)}
             />
-            <PhotoSlot
-              title="2 · Frente del empaque"
-              hint="Para reconocerlo en el estante, y de acá salen la marca y el nombre."
-              shot={front}
-              disabled={scanning}
-              onPick={pick('front')}
-              onClear={() => setFront(null)}
-            />
+          ))}
 
-            <TouchableOpacity
-              style={[s.primary, (!label || !front || scanning) && s.disabled]}
-              disabled={!label || !front || scanning}
-              onPress={handleScan}>
-              {scanning ? (
-                <View style={s.row}>
-                  <ActivityIndicator color={colors.accentText} />
-                  <Text style={s.primaryText}>  Leyendo la etiqueta…</Text>
-                </View>
-              ) : (
-                <Text style={s.primaryText}>Leer etiqueta</Text>
-              )}
-            </TouchableOpacity>
-
-            {!label || !front ? (
-              <Text style={s.footnote}>Hacen falta las dos fotos.</Text>
-            ) : null}
-          </>
-        )}
-
-        {reviewing && ocr && (
-          <>
-            {derived && (
-              <View style={[s.banner, s.bannerWarn]}>
-                <Text style={s.bannerText}>
-                  La etiqueta solo traía la columna por porción. Los valores de abajo se
-                  convirtieron a 100 g usando la porción de {ocr.serving_size_g} g.
-                </Text>
-              </View>
-            )}
-            {!ocr.brand && ocr.brand_visible_text && (
-              <View style={s.banner}>
-                <Text style={s.bannerText}>
-                  No se pudo leer la marca completa; en el logo se alcanza a ver
-                  “{ocr.brand_visible_text}”. Completala vos.
-                </Text>
-              </View>
-            )}
-            {ocr.notes && (
-              <View style={s.banner}>
-                <Text style={s.bannerText}>{ocr.notes}</Text>
-              </View>
-            )}
-
-            <Text style={s.section}>Producto</Text>
-            <Field label="Nombre" value={draft.name} onChange={set('name')} flagged={flagged('product_name')} />
-            <Field label="Marca" value={draft.brand} onChange={set('brand')} flagged={flagged('brand')} placeholder="Sin marca" />
-            <Field label="Porción (como dice la etiqueta)" value={draft.serving_label} onChange={set('serving_label')} placeholder="1 cucharada (15 g)" />
-            <Field label="Gramos por porción" value={draft.serving_size_g} onChange={set('serving_size_g')} numeric suffix="g" flagged={flagged('serving_size')} />
-            <Field label="Contenido del envase" value={draft.package_size_g} onChange={set('package_size_g')} numeric suffix="g" />
-            <Field label="Porciones por envase" value={draft.servings_per_package} onChange={set('servings_per_package')} numeric />
-
-            <Text style={s.section}>Por 100 g</Text>
-            <Text style={s.sectionHint}>
-              Todo se guarda por 100 g: es la única base que deja sumar productos distintos
-              y escalar por los gramos que realmente comas.
-            </Text>
-            {MACRO_FIELDS.map((f) => (
-              <Field
-                key={f}
-                label={MACRO_LABELS[f]}
-                value={draft[f]}
-                onChange={set(f)}
-                numeric
-                flagged={flagged(f)}
-              />
-            ))}
-
-            <TouchableOpacity
-              style={[s.primary, saving && s.disabled]}
-              disabled={saving}
-              onPress={handleSave}>
-              <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar producto'}</Text>
-            </TouchableOpacity>
-            <Text style={s.footnote}>
-              Confianza del modelo: {Math.round((ocr.confidence ?? 0) * 100)}%
-            </Text>
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <TouchableOpacity
+            style={[s.primary, saving && s.disabled]}
+            disabled={saving}
+            onPress={handleSave}>
+            <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar producto'}</Text>
+          </TouchableOpacity>
+          <Text style={s.footnote}>
+            Confianza del modelo: {Math.round((ocr.confidence ?? 0) * 100)}%
+          </Text>
+        </>
+      )}
+    </KeyboardAwareScrollView>
   );
 }
 

@@ -27,6 +27,7 @@ import { RecordsList } from './_components/records-list';
 import { MuscleBalance } from './_components/muscle-balance';
 import { StaleList } from './_components/stale-list';
 import { FilterBar } from './_components/filter-bar';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import { StatCard } from './_components/stat-card';
 import type { AppColorScheme } from '@/constants/theme';
 
@@ -44,6 +45,8 @@ const RANGE_OPTIONS: readonly ChipOption<RangeKey>[] = RANGE_KEYS.map((key) => (
 export default function StatsScreen() {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  // Al buscar un ejercicio, los resultados tienen que quedar alcanzables.
+  const keyboardHeight = useKeyboardHeight();
 
   const [rangeKey, setRangeKey] = useState<RangeKey>(DEFAULT_RANGE);
   const [summary, setSummary] = useState<TrainingSummary>(EMPTY_SUMMARY);
@@ -183,7 +186,7 @@ export default function StatsScreen() {
       ) : (
         <FlatList
           style={s.list}
-          contentContainerStyle={s.content}
+          contentContainerStyle={[s.content, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
           data={visible}
           keyExtractor={(item) => item.exerciseId}
           keyboardShouldPersistTaps="handled"

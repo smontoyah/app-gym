@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
+  Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, MealSlot, RecipeNutrition } from '@/types/database';
 import { MEALS, MEAL_LABELS } from '@/lib/nutricion/diario';
@@ -24,11 +25,30 @@ type Props = {
 export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose, onAdd }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  /**
+   * Android encoge solo el diálogo del Modal; iOS no, y ahí el teclado se
+   * comería la hoja entera.
+   */
+  const keyboardHeight = useKeyboardHeight();
+  const sheetInset = Platform.OS === 'ios' ? keyboardHeight : 0;
 
   const [query, setQuery] = useState('');
   const [pick, setPick] = useState<Pick | null>(null);
   const [meal, setMeal] = useState<MealSlot>(defaultMeal);
   const [grams, setGrams] = useState('');
+
+  /**
+   * La hoja no se desmonta al cerrarse, así que sin este sync `meal` se queda
+   * con la comida elegida la vez anterior y lo agregado cae en la sección
+   * equivocada. Al abrir mandan siempre los datos de la comida que se tocó.
+   */
+  useEffect(() => {
+    if (!visible) return;
+    setMeal(defaultMeal);
+    setQuery('');
+    setPick(null);
+    setGrams('');
+  }, [visible, defaultMeal]);
 
   const close = () => {
     setQuery(''); setPick(null); setGrams('');
@@ -56,8 +76,8 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <View style={s.backdrop}>
-        <View style={s.sheet}>
+      <View style={[s.backdrop, { paddingBottom: sheetInset }]}>
+        <View style={[s.sheet, !pick && s.sheetSearching]}>
           <View style={s.header}>
             <TouchableOpacity onPress={close}><Text style={s.cancel}>Cancelar</Text></TouchableOpacity>
             <Text style={s.title}>{pick ? 'Cantidad' : 'Agregar al diario'}</Text>
@@ -74,7 +94,7 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
                 placeholderTextColor={colors.placeholder}
                 autoCorrect={false}
               />
-              <ScrollView style={s.list} keyboardShouldPersistTaps="handled">
+              <ScrollView style={s.searchList} keyboardShouldPersistTaps="handled">
                 {shownRecipes.length > 0 && <Text style={s.groupTitle}>Recetas</Text>}
                 {shownRecipes.map((r) => (
                   <TouchableOpacity key={r.recipe_id} style={s.item} onPress={() => setPick({ kind: 'receta', recipe: r })}>
@@ -164,6 +184,12 @@ const createStyles = (c: AppColorScheme) =>
       maxHeight: '88%',
       paddingBottom: 20,
     },
+    /**
+     * Mientras se busca, la hoja ocupa todo el alto disponible en vez de
+     * ajustarse a los resultados: así la lista no aparece y desaparece
+     * a cada tecla.
+     */
+    sheetSearching: { height: '88%' },
     header: { flexDirection: 'row', alignItems: 'center', padding: 16 },
     cancel: { color: c.accent, fontSize: 15, width: 80 },
     title: { flex: 1, textAlign: 'center', color: c.text, fontSize: 16, fontWeight: '700' },
@@ -180,6 +206,7 @@ const createStyles = (c: AppColorScheme) =>
       fontSize: 15,
     },
     list: { paddingHorizontal: 16, marginTop: 12 },
+    searchList: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
     groupTitle: {
       color: c.textMuted, fontSize: 11, fontWeight: '700',
       textTransform: 'uppercase', marginTop: 10, marginBottom: 6,

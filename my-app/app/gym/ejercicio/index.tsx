@@ -3,6 +3,7 @@ import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet }
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import {
   addDays,
   dayOfWeek,
@@ -110,6 +111,8 @@ function mapExercise(
 export default function WorkoutScreen() {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  // Los campos de peso y reps quedan tapados si la lista no puede subir.
+  const keyboardHeight = useKeyboardHeight();
   const router = useRouter();
 
   const [dateStr, setDateStr] = useState(todayStr);
@@ -334,7 +337,7 @@ export default function WorkoutScreen() {
   return (
     <FlatList
       style={s.container}
-      contentContainerStyle={s.content}
+      contentContainerStyle={[s.content, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
       data={ordered.list}
       keyExtractor={(block) => block.key}
       keyboardShouldPersistTaps="handled"

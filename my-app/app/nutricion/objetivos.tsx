@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import { Field } from '@/components/nutricion/field';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS, fetchGoals, saveGoals, type GoalField } from '@/lib/nutricion/diario';
 import { parseNum } from '@/lib/nutricion/actions';
 
@@ -48,39 +49,37 @@ export default function ObjetivosScreen() {
   const mismatch = !!goalKcal && impliedKcal > 0 && Math.abs(impliedKcal - goalKcal) > goalKcal * 0.05;
 
   return (
-    <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={s.flex} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.intro}>
-          Tu meta diaria. Dejá en blanco lo que no quieras seguir: solo se muestran
-          en el diario los que tengan valor.
-        </Text>
+    <KeyboardAwareScrollView style={s.flex} contentContainerStyle={s.content}>
+      <Text style={s.intro}>
+        Tu meta diaria. Dejá en blanco lo que no quieras seguir: solo se muestran
+        en el diario los que tengan valor.
+      </Text>
 
-        {GOAL_FIELDS.map((f) => (
-          <Field
-            key={f}
-            label={GOAL_LABELS[f]}
-            value={draft[f]}
-            onChange={(v) => setDraft((d) => ({ ...d, [f]: v }))}
-            numeric
-            suffix={GOAL_UNITS[f]}
-          />
-        ))}
+      {GOAL_FIELDS.map((f) => (
+        <Field
+          key={f}
+          label={GOAL_LABELS[f]}
+          value={draft[f]}
+          onChange={(v) => setDraft((d) => ({ ...d, [f]: v }))}
+          numeric
+          suffix={GOAL_UNITS[f]}
+        />
+      ))}
 
-        {impliedKcal > 0 && (
-          <View style={[s.check, mismatch && s.checkWarn]}>
-            <Text style={s.checkText}>
-              Los macros que escribiste suman {Math.round(impliedKcal)} kcal
-              {' '}(proteína y carbos ×4, grasa ×9)
-              {mismatch ? `, que no cuadra con las ${goalKcal} kcal de la meta.` : '.'}
-            </Text>
-          </View>
-        )}
+      {impliedKcal > 0 && (
+        <View style={[s.check, mismatch && s.checkWarn]}>
+          <Text style={s.checkText}>
+            Los macros que escribiste suman {Math.round(impliedKcal)} kcal
+            {' '}(proteína y carbos ×4, grasa ×9)
+            {mismatch ? `, que no cuadra con las ${goalKcal} kcal de la meta.` : '.'}
+          </Text>
+        </View>
+      )}
 
-        <TouchableOpacity style={[s.primary, saving && s.disabled]} onPress={handleSave} disabled={saving}>
-          <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar objetivo'}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <TouchableOpacity style={[s.primary, saving && s.disabled]} onPress={handleSave} disabled={saving}>
+        <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar objetivo'}</Text>
+      </TouchableOpacity>
+    </KeyboardAwareScrollView>
   );
 }
 
