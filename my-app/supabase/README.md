@@ -19,6 +19,20 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `previous_sets_rpc` | `previous_sets`: última sesión previa por ejercicio |
 | `session_duration_timestamps` | `updated_at` + trigger en `workout_logs` y `cardio_logs`; `export_training_data` devuelve inicio, fin y duración de cada jornada en hora local (`p_tz`) |
 | `stats_date_ranges_and_summary` | `exercise_stats` pasa a recibir un rango (`p_from`, `p_to`) y separa lo del período del récord de siempre; nueva `training_summary` con totales del período y del anterior, serie por día, balance por grupo muscular, récords y ejercicios de la rutina sin registrar |
+| `nutrition_module` | Módulo de nutrición: `food_products` (catálogo, macros **por 100 g** + `ocr_raw` con la respuesta cruda del modelo), `nutrition_logs` (qué se comió y cuántos gramos), `ocr_usage` (cuota diaria de escaneos). Bucket privado `nutrition` con política por carpeta `{user_id}/…` |
+
+## `functions/`
+
+Edge Functions desplegadas con el MCP (`deploy_edge_function`), igual que las
+migraciones: esta carpeta es la copia local de lo que corre en el proyecto.
+
+| Función | Qué hace |
+|---|---|
+| `ocr-nutricion` | Recibe la foto de la tabla nutricional y la del frente en base64, se las pasa a Gemini con `responseSchema` y devuelve el JSON de macros validado. La API key vive en el secret `GEMINI_API_KEY`, nunca en la app. El modelo se cambia con el secret `GEMINI_MODEL` sin redesplegar. |
+
+Las reglas por campo (marca que no se deduce, porción literal, columnas que no
+se derivan una de otra) van en el `description` de cada propiedad del
+`responseSchema`, no en el prompt: el modelo las obedece ahí y no en la prosa.
 
 ## `seed/`
 
