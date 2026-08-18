@@ -28,7 +28,6 @@ export default function Index() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.header}>
-          <Text style={s.hello}>Valtross</Text>
           <TouchableOpacity onPress={() => router.push('/ajustes')} hitSlop={12}>
             <IconSymbol size={24} name="gearshape.fill" color={colors.textSecondary} />
           </TouchableOpacity>
@@ -84,10 +83,9 @@ const createStyles = (c: AppColorScheme) =>
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 28,
+      justifyContent: 'flex-end',
+      marginBottom: 24,
     },
-    hello: { color: c.text, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
     card: {
       flexDirection: 'row',
       alignItems: 'center',

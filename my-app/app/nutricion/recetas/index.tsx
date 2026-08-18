@@ -7,7 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { Recipe, RecipeNutrition } from '@/types/database';
-import { fetchRecipes, createRecipe } from '../_lib/recetas';
+import { fetchRecipes, createRecipe } from '@/lib/nutricion/recetas';
 
 export default function RecetasScreen() {
   const { colors } = useTheme();

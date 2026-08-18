@@ -5,8 +5,8 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, MealSlot, RecipeNutrition } from '@/types/database';
-import { MEALS, MEAL_LABELS } from '../_lib/diario';
-import { parseNum } from '../_lib/actions';
+import { MEALS, MEAL_LABELS } from '@/lib/nutricion/diario';
+import { parseNum } from '@/lib/nutricion/actions';
 
 export type Pick =
   | { kind: 'producto'; product: FoodProduct }

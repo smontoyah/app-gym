@@ -6,14 +6,14 @@ import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, MealSlot, NutritionGoals, NutritionLogMacros, RecipeNutrition } from '@/types/database';
 import { todayStr, addDays, formatLong, isToday } from '@/lib/date';
-import { MacroBar } from './_components/macro-bar';
-import { AddEntryModal, type Pick } from './_components/add-entry-modal';
+import { MacroBar } from '@/components/nutricion/macro-bar';
+import { AddEntryModal, type Pick } from '@/components/nutricion/add-entry-modal';
 import {
   MEALS, MEAL_LABELS, GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS,
   fetchDay, addEntry, deleteEntry, sumTotals, type DayTotals,
-} from './_lib/diario';
-import { fetchProducts } from './_lib/actions';
-import { fetchRecipes } from './_lib/recetas';
+} from '@/lib/nutricion/diario';
+import { fetchProducts } from '@/lib/nutricion/actions';
+import { fetchRecipes } from '@/lib/nutricion/recetas';
 
 export default function DiarioScreen() {
   const { colors } = useTheme();

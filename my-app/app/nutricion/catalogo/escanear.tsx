@@ -6,14 +6,14 @@ import {
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import { PhotoSlot } from '../_components/photo-slot';
-import { Field } from '../_components/field';
-import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '../_lib/scan';
-import { saveProduct } from '../_lib/actions';
+import { PhotoSlot } from '@/components/nutricion/photo-slot';
+import { Field } from '@/components/nutricion/field';
+import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nutricion/scan';
+import { saveProduct } from '@/lib/nutricion/actions';
 import {
   MACRO_FIELDS, MACRO_LABELS,
   type MacroField, type OcrResult, type ProductDraft,
-} from '../_lib/types';
+} from '@/lib/nutricion/types';
 
 const EMPTY: ProductDraft = {
   name: '', brand: '', package_size_g: '', serving_size_g: '',

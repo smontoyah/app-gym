@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import type { Shot } from '../_lib/scan';
+import type { Shot } from '@/lib/nutricion/scan';
 
 type Props = {
   title: string;

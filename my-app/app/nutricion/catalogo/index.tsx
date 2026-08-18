@@ -6,7 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct } from '@/types/database';
-import { fetchProducts, signPhotoUrls, deleteProduct } from '../_lib/actions';
+import { fetchProducts, signPhotoUrls, deleteProduct } from '@/lib/nutricion/actions';
 
 export default function CatalogoScreen() {
   const { colors } = useTheme();

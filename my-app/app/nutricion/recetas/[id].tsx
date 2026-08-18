@@ -8,10 +8,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, Recipe, RecipeItemWithProduct, RecipeNutrition } from '@/types/database';
-import { fetchProducts, parseNum } from '../_lib/actions';
+import { fetchProducts, parseNum } from '@/lib/nutricion/actions';
 import {
   fetchRecipe, updateRecipe, addItem, updateItemQuantity, removeItem, deleteRecipe,
-} from '../_lib/recetas';
+} from '@/lib/nutricion/recetas';
 
 export default function RecetaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

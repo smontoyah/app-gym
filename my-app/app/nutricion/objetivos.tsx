@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAv
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import { Field } from './_components/field';
-import { GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS, fetchGoals, saveGoals, type GoalField } from './_lib/diario';
-import { parseNum } from './_lib/actions';
+import { Field } from '@/components/nutricion/field';
+import { GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS, fetchGoals, saveGoals, type GoalField } from '@/lib/nutricion/diario';
+import { parseNum } from '@/lib/nutricion/actions';
 
 type Draft = Record<GoalField, string>;
 const EMPTY = Object.fromEntries(GOAL_FIELDS.map((f) => [f, ''])) as Draft;
