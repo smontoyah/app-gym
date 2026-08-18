@@ -56,7 +56,11 @@ export default function CatalogoScreen() {
           products.map((p) => {
             const url = p.front_photo_path ? urls[p.front_photo_path] : undefined;
             return (
-              <TouchableOpacity key={p.id} style={s.card} onLongPress={() => confirmDelete(p)}>
+              <TouchableOpacity
+                key={p.id}
+                style={s.card}
+                onPress={() => router.push(`/nutricion/catalogo/${p.id}`)}
+                onLongPress={() => confirmDelete(p)}>
                 {url ? (
                   // cacheKey estable: la URL firmada cambia en cada refresco y sin
                   // esto expo-image volvería a descargar la miniatura cada sesión.
@@ -76,6 +80,7 @@ export default function CatalogoScreen() {
                     <Text style={s.per}>  /100 g</Text>
                   </Text>
                 </View>
+                <Text style={s.chevron}>›</Text>
               </TouchableOpacity>
             );
           })
@@ -114,6 +119,7 @@ const createStyles = (c: AppColorScheme) =>
     brand: { color: c.textSecondary, fontSize: 12, marginTop: 1 },
     macros: { color: c.textSecondary, fontSize: 12, marginTop: 4 },
     per: { color: c.textMuted },
+    chevron: { color: c.textMuted, fontSize: 22, fontWeight: '300', marginLeft: 6 },
     fab: {
       position: 'absolute',
       left: 16,

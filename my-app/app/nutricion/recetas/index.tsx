@@ -4,7 +4,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { AppColorScheme } from '@/constants/theme';
 import type { Recipe, RecipeNutrition } from '@/types/database';
 import { fetchRecipes, createRecipe } from '@/lib/nutricion/recetas';
@@ -17,6 +19,15 @@ export default function RecetasScreen() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
+
+  /**
+   * La barra de creación va anclada al fondo de la escena, que arranca arriba
+   * del tab bar. El teclado tapa desde el fondo de la ventana, así que solo
+   * hay que subirla lo que tape de más.
+   */
+  const tabBarHeight = useBottomTabBarHeight();
+  const keyboardHeight = useKeyboardHeight();
+  const lift = Math.max(0, keyboardHeight - tabBarHeight);
 
   const load = useCallback(async () => {
     const { recipes, empty, error } = await fetchRecipes();
@@ -87,7 +98,7 @@ export default function RecetasScreen() {
       </ScrollView>
 
       {creating ? (
-        <View style={s.createBar}>
+        <View style={[s.createBar, { bottom: lift }]}>
           <TextInput
             style={s.input}
             value={name}

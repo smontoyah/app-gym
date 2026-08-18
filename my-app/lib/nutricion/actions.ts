@@ -105,6 +105,48 @@ async function uploadPhoto(path: string, uri: string): Promise<string | null> {
   }
 }
 
+export async function fetchProduct(
+  id: string
+): Promise<{ product: FoodProduct | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('food_products')
+    .select('*')
+    .eq('id', id)
+    .single();
+  return { product: data ?? null, error: error?.message ?? null };
+}
+
+/** Vuelca una fila de la base al formulario editable (todo string). */
+export function productToDraft(p: FoodProduct): ProductDraft {
+  const str = (v: number | string | null) => (v == null ? '' : String(v));
+  return {
+    name: p.name,
+    brand: p.brand ?? '',
+    package_size_g: str(p.package_size_g),
+    serving_size_g: str(p.serving_size_g),
+    serving_label: p.serving_label ?? '',
+    servings_per_package: str(p.servings_per_package),
+    ...(Object.fromEntries(
+      MACRO_FIELDS.map((f) => [f, str(p[f])])
+    ) as Record<MacroField, string>),
+  };
+}
+
+export async function updateProduct(
+  id: string,
+  draft: ProductDraft
+): Promise<{ error: string | null }> {
+  const row = draftToRow(draft);
+  if (!row.name) return { error: 'El nombre no puede quedar vacío.' };
+
+  // verified queda en true: si el usuario editó a mano, revisó los valores.
+  const { error } = await supabase
+    .from('food_products')
+    .update({ ...row, verified: true })
+    .eq('id', id);
+  return { error: error?.message ?? null };
+}
+
 export async function fetchProducts(): Promise<{ products: FoodProduct[]; error: string | null }> {
   const { data, error } = await supabase
     .from('food_products')

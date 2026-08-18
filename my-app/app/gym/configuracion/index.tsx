@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Keyboard, Platform, Modal } from 'react-native';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
+import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import {
   fetchRoutinesAndExercises,
   createExercise,
@@ -141,7 +142,7 @@ export default function ConfigScreen() {
   };
 
   const scrollRef = useRef<ScrollView>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const [muscleFilter, setMuscleFilter] = useState<string | null>(null);
 
   const availableExercises = useMemo(() => {
@@ -158,14 +159,6 @@ export default function ConfigScreen() {
     () => muscleFilter ? availableExercises.filter((e) => e.muscle_group === muscleFilter) : availableExercises,
     [availableExercises, muscleFilter]
   );
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
-    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    return () => { onShow.remove(); onHide.remove(); };
-  }, []);
 
   const scrollToEnd = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
