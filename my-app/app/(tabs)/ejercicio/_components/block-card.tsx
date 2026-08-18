@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import type { WeightUnit } from '@/lib/units';
 import { ExerciseCard } from './exercise-card';
 import type { SetField } from './set-row';
-import type { WorkoutBlock } from '../_lib/types';
+import type { SetInput, WorkoutBlock } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 type BlockCardProps = {
@@ -12,11 +13,9 @@ type BlockCardProps = {
   current: boolean;
   targetRpe: string | null;
   onSetValueChange: (exerciseId: string, setIndex: number, field: SetField, value: string) => void;
-  onSaveSet: (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => void;
-  onSaveAllSets: (
-    exerciseId: string,
-    sets: { setNumber: number; reps: string; weight: string; rpe: string }[]
-  ) => void;
+  onUnitChange: (exerciseId: string, unit: WeightUnit) => void;
+  onSaveSet: (exerciseId: string, set: SetInput, unit: WeightUnit) => void;
+  onSaveAllSets: (exerciseId: string, sets: SetInput[], unit: WeightUnit) => void;
 };
 
 /**
@@ -28,6 +27,7 @@ export const BlockCard = memo(function BlockCard({
   current,
   targetRpe,
   onSetValueChange,
+  onUnitChange,
   onSaveSet,
   onSaveAllSets,
 }: BlockCardProps) {
@@ -59,6 +59,7 @@ export const BlockCard = memo(function BlockCard({
             targetRpe={targetRpe}
             positionLabel={isSuperset ? `${block.supersetGroup}${i + 1}` : undefined}
             onSetValueChange={onSetValueChange}
+            onUnitChange={onUnitChange}
             onSaveSet={onSaveSet}
             onSaveAllSets={onSaveAllSets}
           />

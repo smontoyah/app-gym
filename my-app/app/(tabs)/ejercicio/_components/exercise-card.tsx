@@ -1,8 +1,10 @@
 import { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { labelWeight, type WeightUnit } from '@/lib/units';
 import { SetRow, type SetField } from './set-row';
-import type { ExerciseWithSets } from '../_lib/types';
+import { WeightUnitToggle } from './weight-unit-toggle';
+import type { ExerciseWithSets, LoadSuggestion, SetInput } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 type ExerciseCardProps = {
@@ -12,18 +14,30 @@ type ExerciseCardProps = {
   /** Etiqueta dentro de una super serie: 'A1', 'A2'… */
   positionLabel?: string;
   onSetValueChange: (exerciseId: string, setIndex: number, field: SetField, value: string) => void;
-  onSaveSet: (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => void;
-  onSaveAllSets: (
-    exerciseId: string,
-    sets: { setNumber: number; reps: string; weight: string; rpe: string }[]
-  ) => void;
+  onUnitChange: (exerciseId: string, unit: WeightUnit) => void;
+  onSaveSet: (exerciseId: string, set: SetInput, unit: WeightUnit) => void;
+  onSaveAllSets: (exerciseId: string, sets: SetInput[], unit: WeightUnit) => void;
 };
+
+/** La sugerencia se calcula en kg y se dice en la unidad que se está usando. */
+function suggestionText(suggestion: LoadSuggestion, unit: WeightUnit): string {
+  const load = labelWeight(suggestion.weightKg, unit);
+  switch (suggestion.action) {
+    case 'increase':
+      return `Sugerido: subí a ${load}`;
+    case 'hold-rpe':
+      return `Sugerido: mantené ${load} (RPE por encima del objetivo)`;
+    case 'hold-reps':
+      return `Sugerido: mantené ${load} hasta completar ${suggestion.targetReps} reps`;
+  }
+}
 
 export const ExerciseCard = memo(function ExerciseCard({
   exercise,
   targetRpe,
   positionLabel,
   onSetValueChange,
+  onUnitChange,
   onSaveSet,
   onSaveAllSets,
 }: ExerciseCardProps) {
@@ -73,12 +87,17 @@ export const ExerciseCard = memo(function ExerciseCard({
       </View>
 
       {exercise.notes && <Text style={s.notes}>{exercise.notes}</Text>}
-      {exercise.suggestion && !done && <Text style={s.suggestion}>{exercise.suggestion}</Text>}
+      {exercise.suggestion && !done && (
+        <Text style={s.suggestion}>{suggestionText(exercise.suggestion, exercise.weightUnit)}</Text>
+      )}
 
       <View style={s.setsHeader}>
         <Text style={[s.label, s.labelSet]}>#</Text>
         <Text style={s.label}>Reps</Text>
-        <Text style={s.label}>Peso (kg)</Text>
+        <WeightUnitToggle
+          unit={exercise.weightUnit}
+          onChange={(unit) => onUnitChange(exercise.exercise_id, unit)}
+        />
         <Text style={[s.label, s.labelRpe]}>RPE</Text>
         <View style={s.labelSpacer} />
       </View>
@@ -89,6 +108,7 @@ export const ExerciseCard = memo(function ExerciseCard({
           set={set}
           setIndex={setIndex}
           exerciseId={exercise.exercise_id}
+          unit={exercise.weightUnit}
           targetReps={exercise.target_reps}
           targetRpe={targetRpe}
           onValueChange={onSetValueChange}
@@ -107,7 +127,8 @@ export const ExerciseCard = memo(function ExerciseCard({
                 reps: st.reps,
                 weight: st.weight,
                 rpe: st.rpe,
-              }))
+              })),
+              exercise.weightUnit
             )
           }
         >

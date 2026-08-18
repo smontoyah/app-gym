@@ -14,13 +14,21 @@ import {
   minutesBetween,
   todayStr,
 } from '@/lib/date';
+import { convertWeightInput, type WeightUnit } from '@/lib/units';
 import { fetchDayWorkout, saveCardioSession, saveWorkoutSet } from './_lib/actions';
+import { saveWeightUnit } from './_lib/unit-prefs';
 import { BlockCard } from './_components/block-card';
 import { CardioCard } from './_components/cardio-card';
 import { PhaseBanner } from './_components/phase-banner';
 import { RestTimer, type RestTarget } from './_components/rest-timer';
 import type { SetField } from './_components/set-row';
-import type { DayWorkout, ExerciseWithSets, SessionWindow, WorkoutBlock } from './_lib/types';
+import type {
+  DayWorkout,
+  ExerciseWithSets,
+  SessionWindow,
+  SetInput,
+  WorkoutBlock,
+} from './_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 const DEFAULT_REST_SECONDS = 90;
@@ -134,38 +142,8 @@ export default function WorkoutScreen() {
     setDateStr(next);
   }, []);
 
-  const handleSaveSet = useCallback(
-    async (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => {
-      const { success, loggedAt } = await saveWorkoutSet({
-        exerciseId,
-        dateStr,
-        setNumber,
-        reps,
-        weight,
-        rpe,
-      });
-      if (!success) return;
-
-      setWorkout((prev) => ({
-        ...prev,
-        blocks: mapExercise(prev.blocks, exerciseId, (exercise) => ({
-          ...exercise,
-          sets_data: exercise.sets_data.map((st) =>
-            st.set_number === setNumber ? { ...st, saved: true } : st
-          ),
-        })),
-        session: extendSession(prev.session, loggedAt),
-      }));
-      setLastSaved({ exerciseId, at: Date.now() });
-    },
-    [dateStr]
-  );
-
-  const handleSaveAllSets = useCallback(
-    async (
-      exerciseId: string,
-      sets: { setNumber: number; reps: string; weight: string; rpe: string }[]
-    ) => {
+  const handleSaveSets = useCallback(
+    async (exerciseId: string, sets: SetInput[], unit: WeightUnit) => {
       const results = await Promise.all(
         sets.map((st) =>
           saveWorkoutSet({
@@ -174,6 +152,7 @@ export default function WorkoutScreen() {
             setNumber: st.setNumber,
             reps: st.reps,
             weight: st.weight,
+            unit,
             rpe: st.rpe,
           })
         )
@@ -195,6 +174,36 @@ export default function WorkoutScreen() {
     },
     [dateStr]
   );
+
+  const handleSaveSet = useCallback(
+    (exerciseId: string, set: SetInput, unit: WeightUnit) =>
+      handleSaveSets(exerciseId, [set], unit),
+    [handleSaveSets]
+  );
+
+  /**
+   * Cambio de unidad de captura: se traduce lo que ya está escrito para que el
+   * número coincida con la máquina, sin tocar lo guardado — en la base sigue
+   * habiendo los mismos kg y las series guardadas siguen guardadas.
+   */
+  const handleUnitChange = useCallback((exerciseId: string, unit: WeightUnit) => {
+    setWorkout((prev) => ({
+      ...prev,
+      blocks: mapExercise(prev.blocks, exerciseId, (exercise) =>
+        exercise.weightUnit === unit
+          ? exercise
+          : {
+              ...exercise,
+              weightUnit: unit,
+              sets_data: exercise.sets_data.map((st) => ({
+                ...st,
+                weight: convertWeightInput(st.weight, exercise.weightUnit, unit),
+              })),
+            }
+      ),
+    }));
+    saveWeightUnit(exerciseId, unit);
+  }, []);
 
   const handleSetValueChange = useCallback(
     (exerciseId: string, setIndex: number, field: SetField, value: string) => {
@@ -337,8 +346,9 @@ export default function WorkoutScreen() {
           current={item.key === ordered.currentKey}
           targetRpe={targetRpe}
           onSetValueChange={handleSetValueChange}
+          onUnitChange={handleUnitChange}
           onSaveSet={handleSaveSet}
-          onSaveAllSets={handleSaveAllSets}
+          onSaveAllSets={handleSaveSets}
         />
       )}
     />

@@ -1,7 +1,8 @@
 import { memo, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
-import type { SetLog } from '../_lib/types';
+import { formatWeight, labelWeight, parseWeight, toKg, type WeightUnit } from '@/lib/units';
+import type { SetInput, SetLog } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 export type SetField = 'reps' | 'weight' | 'rpe';
@@ -10,18 +11,21 @@ type SetRowProps = {
   set: SetLog;
   setIndex: number;
   exerciseId: string;
+  /** Unidad en la que está escrito el peso de esta fila. */
+  unit: WeightUnit;
   /** Repeticiones objetivo del plan, como placeholder. */
   targetReps: string | null;
   /** RPE objetivo de la fase, como placeholder. */
   targetRpe: string | null;
   onValueChange: (exerciseId: string, setIndex: number, field: SetField, value: string) => void;
-  onSave: (exerciseId: string, setNumber: number, reps: string, weight: string, rpe: string) => void;
+  onSave: (exerciseId: string, set: SetInput, unit: WeightUnit) => void;
 };
 
 export const SetRow = memo(function SetRow({
   set,
   setIndex,
   exerciseId,
+  unit,
   targetReps,
   targetRpe,
   onValueChange,
@@ -29,6 +33,27 @@ export const SetRow = memo(function SetRow({
 }: SetRowProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+
+  // Una sola línea de apoyo por serie. En lb se abre con el kg que va a quedar
+  // guardado: es la unidad de todo lo demás, así que conviene tenerlo a la vista
+  // y no de fe. La referencia de la sesión previa se dice en la unidad de
+  // captura, que es la única comparación útil frente a la máquina.
+  const hint = useMemo(() => {
+    const parts: string[] = [];
+
+    if (unit === 'lb') {
+      const entered = parseWeight(set.weight);
+      if (entered !== null) parts.push(`= ${formatWeight(toKg(entered, 'lb'))} kg`);
+    }
+
+    if (set.previous && !set.saved) {
+      const { weightKg, reps, rpe } = set.previous;
+      const rpeLabel = rpe !== null ? ` @ RPE ${rpe}` : '';
+      parts.push(`anterior ${labelWeight(weightKg, unit)} × ${reps}${rpeLabel}`);
+    }
+
+    return parts.join(' · ');
+  }, [unit, set.weight, set.previous, set.saved]);
 
   return (
     <>
@@ -60,17 +85,18 @@ export const SetRow = memo(function SetRow({
         />
         <TouchableOpacity
           style={[s.saveBtn, set.saved && s.saveBtnDone]}
-          onPress={() => onSave(exerciseId, set.set_number, set.reps, set.weight, set.rpe)}
+          onPress={() =>
+            onSave(
+              exerciseId,
+              { setNumber: set.set_number, reps: set.reps, weight: set.weight, rpe: set.rpe },
+              unit
+            )
+          }
         >
           <Text style={s.saveBtnText}>{set.saved ? '✓' : '→'}</Text>
         </TouchableOpacity>
       </View>
-      {set.previousWeight && !set.saved && (
-        <Text style={s.previousLabel}>
-          anterior: {set.previousWeight}kg × {set.previousReps ?? '?'}
-          {set.previousRpe ? ` @ RPE ${set.previousRpe}` : ''}
-        </Text>
-      )}
+      {hint !== '' && <Text style={s.hint}>{hint}</Text>}
     </>
   );
 });
@@ -101,5 +127,5 @@ const createStyles = (c: AppColorScheme) =>
     },
     saveBtnDone: { backgroundColor: c.success },
     saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    previousLabel: { color: c.textMuted, fontSize: 11, textAlign: 'center', marginTop: -4, marginBottom: 6 },
+    hint: { color: c.textMuted, fontSize: 11, textAlign: 'center', marginTop: -4, marginBottom: 6 },
   });

@@ -1,11 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/lib/auth-helpers';
 import { dayOfWeek } from '@/lib/date';
+import { formatWeight, fromKg, parseWeight, toKg, type WeightUnit } from '@/lib/units';
 import type { PreviousSetRow, RoutineWithExercise } from '@/types/database';
+import { loadWeightUnits } from './unit-prefs';
 import type {
   CardioEntry,
   DayWorkout,
   ExerciseWithSets,
+  LoadSuggestion,
   SessionWindow,
   SetLog,
   WorkoutBlock,
@@ -25,12 +28,16 @@ function parseTargetReps(target: string | null): number | null {
  * Sugerencia de carga para hoy a partir de la sesión previa.
  * El plan es a repeticiones y RIR fijos, así que la progresión es por carga:
  * si la última vez completaste el objetivo en todas las series, toca subir.
+ *
+ * Se razona en kg (con el paso de 2,5 kg de las mancuernas) y se devuelve el
+ * número, no el texto: quien lo pinta sabe si el ejercicio se está capturando
+ * en kg o en lb y lo dice en esa unidad.
  */
 function buildSuggestion(
   previous: PreviousSetRow[],
   targetReps: number | null,
   rpeTarget: number | null
-): string | undefined {
+): LoadSuggestion | undefined {
   if (previous.length === 0 || targetReps === null) return undefined;
 
   const topWeight = Math.max(...previous.map((p) => Number(p.weight)));
@@ -43,12 +50,13 @@ function buildSuggestion(
 
   if (hitAllReps && rpeUnderTarget) {
     const next = Math.round((topWeight + LOAD_STEP_KG) * 10) / 10;
-    return `Sugerido: subí a ${next} kg`;
+    return { action: 'increase', weightKg: next, targetReps };
   }
-  if (hitAllReps) {
-    return `Sugerido: mantené ${topWeight} kg (RPE por encima del objetivo)`;
-  }
-  return `Sugerido: mantené ${topWeight} kg hasta completar ${targetReps} reps`;
+  return {
+    action: hitAllReps ? 'hold-rpe' : 'hold-reps',
+    weightKg: topWeight,
+    targetReps,
+  };
 }
 
 /** Agrupa ejercicios consecutivos que comparten super serie en un solo bloque. */
@@ -142,13 +150,14 @@ export async function fetchDayWorkout(
 
   const exerciseIds = routines.map((r) => r.exercise_id);
 
-  const [logsRes, previousRes] = await Promise.all([
+  const [logsRes, previousRes, unitByExercise] = await Promise.all([
     supabase
       .from('workout_logs')
       .select('*')
       .eq('user_id', userId)
       .eq('workout_date', dateStr),
     supabase.rpc('previous_sets', { p_before: dateStr, p_exercise_ids: exerciseIds }),
+    loadWeightUnits(),
   ]);
 
   if (logsRes.error) {
@@ -166,26 +175,32 @@ export async function fetchDayWorkout(
     const savedLogs = (logsRes.data ?? []).filter((l) => l.exercise_id === routine.exercise_id);
     const previous = previousByExercise.get(routine.exercise_id) ?? [];
     const targetReps = parseTargetReps(routine.target_reps);
+    // En la máquina se lee lo que dice el pin: los kg guardados se muestran en
+    // la unidad que se eligió la última vez para este ejercicio.
+    const weightUnit = unitByExercise[routine.exercise_id] ?? 'kg';
+    const inUnit = (kg: number) => formatWeight(fromKg(kg, weightUnit));
 
     const sets_data: SetLog[] = [];
     for (let n = 1; n <= routine.sets; n++) {
       const saved = savedLogs.find((l) => l.set_number === n);
       const prev = previous.find((p) => p.set_number === n);
+      const referenceKg = saved ? Number(saved.weight) : prev ? Number(prev.weight) : null;
       sets_data.push({
         set_number: n,
         reps: saved ? String(saved.reps) : prev ? String(prev.reps) : '',
-        weight: saved ? String(saved.weight) : prev ? String(prev.weight) : '',
+        weight: referenceKg !== null ? inUnit(referenceKg) : '',
         rpe: saved?.rpe != null ? String(saved.rpe) : '',
         saved: !!saved,
-        previousReps: prev ? String(prev.reps) : undefined,
-        previousWeight: prev ? String(prev.weight) : undefined,
-        previousRpe: prev?.rpe != null ? String(prev.rpe) : undefined,
+        previous: prev
+          ? { weightKg: Number(prev.weight), reps: prev.reps, rpe: prev.rpe }
+          : undefined,
       });
     }
 
     return {
       ...routine,
       sets_data,
+      weightUnit,
       previousDate: previous[0]?.workout_date,
       suggestion: buildSuggestion(previous, targetReps, rpeTarget),
     };
@@ -212,17 +227,20 @@ export async function saveWorkoutSet(params: {
   setNumber: number;
   reps: string;
   weight: string;
+  /** Unidad en la que está escrito `weight`. A la base va siempre en kg. */
+  unit: WeightUnit;
   rpe: string;
 }): Promise<SaveSetResult> {
-  const { exerciseId, dateStr, setNumber, reps, weight, rpe } = params;
+  const { exerciseId, dateStr, setNumber, reps, weight, unit, rpe } = params;
 
   if (!reps || !weight) return { success: false, error: 'Faltan datos', loggedAt: null };
 
   const parsedReps = parseInt(reps, 10);
-  const parsedWeight = parseFloat(weight);
-  if (!Number.isFinite(parsedReps) || !Number.isFinite(parsedWeight)) {
+  const enteredWeight = parseWeight(weight);
+  if (!Number.isFinite(parsedReps) || enteredWeight === null) {
     return { success: false, error: 'Valores inválidos', loggedAt: null };
   }
+  const parsedWeight = toKg(enteredWeight, unit);
 
   const parsedRpe = rpe ? parseFloat(rpe) : NaN;
   if (rpe && (!Number.isFinite(parsedRpe) || parsedRpe < 1 || parsedRpe > 10)) {
