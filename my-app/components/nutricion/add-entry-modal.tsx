@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform,
+  Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
@@ -26,11 +26,12 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   /**
-   * Android encoge solo el diálogo del Modal; iOS no, y ahí el teclado se
-   * comería la hoja entera.
+   * Con edge-to-edge el diálogo del Modal tampoco se encoge en Android: RN lo
+   * abre con la barra de navegación translúcida, la ventana queda a pantalla
+   * completa y el teclado se dibuja encima de la hoja. Hay que apartarla a mano
+   * en las dos plataformas.
    */
-  const keyboardHeight = useKeyboardHeight();
-  const sheetInset = Platform.OS === 'ios' ? keyboardHeight : 0;
+  const sheetInset = useKeyboardHeight();
 
   const [query, setQuery] = useState('');
   const [pick, setPick] = useState<Pick | null>(null);

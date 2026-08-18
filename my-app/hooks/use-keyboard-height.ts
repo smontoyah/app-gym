@@ -11,8 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  * informa el alto ya descontada la barra de navegación (ReactRootView hace
  * `ime - systemBars`), y acá la queremos incluida.
  *
- * No aplica dentro de un <Modal>: a ese diálogo RN le pone ADJUST_RESIZE y se
- * encoge solo en Android. Ahí solo hace falta compensar en iOS.
+ * También aplica dentro de un <Modal>: aunque RN le pone ADJUST_RESIZE, con
+ * edge-to-edge abre el diálogo con la barra de navegación translúcida
+ * (`setDecorFitsSystemWindows(false)`), así que tampoco se encoge.
  */
 export function useKeyboardHeight() {
   const [height, setHeight] = useState(0);
