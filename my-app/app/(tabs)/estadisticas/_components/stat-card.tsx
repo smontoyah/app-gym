@@ -26,7 +26,7 @@ type StatCardProps = {
 function sessionDelta(
   recent: SessionPoint[],
   index: number,
-  metric: 'e1rm' | 'reps'
+  metric: ProgressMetric
 ): { label: string; positive: boolean } | null {
   const previous = recent[index + 1];
   if (!previous) return null;
@@ -73,16 +73,17 @@ function buildFigures(stat: ExerciseStat, metric: ProgressMetric): Figure[] {
     ];
   }
 
-  // El máximo es el del período: sin carga el servidor no guarda un PR aparte.
-  const best = stat.recent.reduce(
-    (top, point) => (point.reps > top.reps ? point : top),
-    stat.recent[0]
-  );
+  const ultima = {
+    label: 'Última',
+    value: `${stat.lastReps} reps`,
+    hint: formatShort(stat.lastDate),
+  };
+  if (stat.recent.length === 0) return [ultima];
 
-  return [
-    { label: 'Última', value: `${stat.lastReps} reps`, hint: formatShort(stat.lastDate) },
-    { label: 'Mejor', value: `${best.reps} reps`, hint: formatShort(best.date) },
-  ];
+  // El máximo es el del período: sin carga el servidor no guarda un PR aparte.
+  const best = stat.recent.reduce((top, point) => (point.reps > top.reps ? point : top));
+
+  return [ultima, { label: 'Mejor', value: `${best.reps} reps`, hint: formatShort(best.date) }];
 }
 
 export const StatCard = memo(function StatCard({

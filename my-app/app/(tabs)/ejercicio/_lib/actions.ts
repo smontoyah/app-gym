@@ -17,6 +17,16 @@ import type {
 /** Incremento mínimo razonable en gimnasio (mancuernas / stack de máquina). */
 const LOAD_STEP_KG = 2.5;
 
+/**
+ * Tope de repeticiones por serie.
+ *
+ * No es un límite de entrenamiento sino un filtro de tipeo: un `913` en vez de
+ * `13` se guardaba sin chistar y de ahí en adelante contaminaba **todo** — el
+ * 1RM estimado de ese ejercicio, su récord, el volumen del día y el del período.
+ * Un solo dedo torpe dejaba la pantalla de estadísticas inservible.
+ */
+const MAX_REPS = 100;
+
 /** '13' → 13 · '13 c/u' → 13 · '18' → 18 · null → null */
 function parseTargetReps(target: string | null): number | null {
   if (!target) return null;
@@ -239,6 +249,13 @@ export async function saveWorkoutSet(params: {
   const enteredWeight = parseWeight(weight);
   if (!Number.isFinite(parsedReps) || enteredWeight === null) {
     return { success: false, error: 'Valores inválidos', loggedAt: null };
+  }
+  if (parsedReps < 1 || parsedReps > MAX_REPS) {
+    return {
+      success: false,
+      error: `Las repeticiones deben estar entre 1 y ${MAX_REPS}`,
+      loggedAt: null,
+    };
   }
   const parsedWeight = toKg(enteredWeight, unit);
 
