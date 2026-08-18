@@ -60,6 +60,17 @@ export function isToday(dateStr: string): boolean {
   return dateStr === todayStr();
 }
 
+/**
+ * Días completos entre `dateStr` y hoy, en local.
+ * Se comparan fechas a medianoche local por los dos lados: restar timestamps
+ * crudos daría 0 o 1 día según la hora a la que se abra la app.
+ */
+export function daysSince(dateStr: string): number {
+  const from = parseDateStr(dateStr).getTime();
+  const to = parseDateStr(todayStr()).getTime();
+  return Math.round((to - from) / 86400000);
+}
+
 /** Primer día del mes actual, en local. */
 export function startOfMonthStr(): string {
   const now = new Date();

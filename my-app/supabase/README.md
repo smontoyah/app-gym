@@ -18,6 +18,7 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `export_rpc_and_cardio_seed` | `export_training_data` + cardio y fase del protocolo vigente |
 | `previous_sets_rpc` | `previous_sets`: última sesión previa por ejercicio |
 | `session_duration_timestamps` | `updated_at` + trigger en `workout_logs` y `cardio_logs`; `export_training_data` devuelve inicio, fin y duración de cada jornada en hora local (`p_tz`) |
+| `stats_date_ranges_and_summary` | `exercise_stats` pasa a recibir un rango (`p_from`, `p_to`) y separa lo del período del récord de siempre; nueva `training_summary` con totales del período y del anterior, serie por día, balance por grupo muscular, récords y ejercicios de la rutina sin registrar |
 
 ## `seed/`
 

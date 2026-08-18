@@ -80,17 +80,24 @@ export type RoutineWithExercise = Routine & {
   exercises: Exercise;
 };
 
-/** Fila devuelta por la función `exercise_stats`. */
+/** Fila devuelta por la función `exercise_stats`, acotada al rango pedido. */
 export type ExerciseStatsRow = {
   exercise_id: string;
   name: string;
   muscle_group: string;
-  total_sessions: number;
+  /** Sesiones dentro del rango (una sesión = este ejercicio en un día). */
+  sessions: number;
+  sets: number;
+  volume: number;
+  avg_rpe: number | null;
   last_date: string;
   last_weight: number;
-  max_weight: number;
+  last_reps: number;
   last_e1rm: number;
+  /** De siempre, no del rango: un récord no deja de serlo por mirar una semana. */
+  max_weight: number;
   best_e1rm: number;
+  pr_date: string;
   recent: {
     date: string;
     weight: number;
@@ -99,6 +106,51 @@ export type ExerciseStatsRow = {
     volume: number;
     rpe: number | null;
     sets: number;
+  }[];
+};
+
+/** Fila devuelta por la función `training_summary`. */
+export type TrainingSummaryRow = {
+  /** Días con algo registrado, cardio incluido. */
+  sessions: number;
+  sets: number;
+  volume: number;
+  avg_rpe: number | null;
+  exercises: number;
+  avg_duration_min: number | null;
+  cardio_sessions: number;
+  cardio_minutes: number;
+  /** Los mismos totales del período anterior de igual longitud. */
+  prev_sessions: number;
+  prev_sets: number;
+  prev_volume: number;
+  prev_avg_rpe: number | null;
+  by_day: {
+    date: string;
+    sets: number;
+    volume: number;
+    rpe: number | null;
+    exercises: number;
+    minutes: number;
+    /** Minutos entre el primer y el último input de la jornada. */
+    duration: number | null;
+  }[];
+  by_muscle: { group: string; sets: number; volume: number; sessions: number }[];
+  /** Sesiones que superaron a todas las anteriores de ese ejercicio. */
+  records: {
+    exerciseId: string;
+    name: string;
+    muscleGroup: string;
+    date: string;
+    e1rm: number;
+    prevBest: number;
+  }[];
+  /** Ejercicios de la rutina vigente con su último registro; `null` = nunca. */
+  stale: {
+    exerciseId: string;
+    name: string;
+    muscleGroup: string;
+    lastDate: string | null;
   }[];
 };
 
@@ -324,8 +376,12 @@ export type Database = {
         Returns: number;
       };
       exercise_stats: {
-        Args: { p_sessions?: number };
+        Args: { p_from?: string; p_to?: string; p_sessions?: number };
         Returns: ExerciseStatsRow[];
+      };
+      training_summary: {
+        Args: { p_from?: string; p_to?: string };
+        Returns: TrainingSummaryRow[];
       };
       previous_sets: {
         Args: { p_before: string; p_exercise_ids: string[] };
