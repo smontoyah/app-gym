@@ -131,12 +131,19 @@ export default function DiarioScreen() {
 
             {MEALS.map((meal) => {
               const items = entries.filter((e) => e.meal === meal);
-              const mealKcal = sumTotals(items).energy_kcal;
+              const mealTotals = sumTotals(items);
               return (
                 <View key={meal} style={s.meal}>
                   <View style={s.mealHeader}>
                     <Text style={s.mealTitle}>{MEAL_LABELS[meal]}</Text>
-                    <Text style={s.mealKcal}>{Math.round(mealKcal)} kcal</Text>
+                    <Text style={s.mealKcal}>
+                      {/* Con la comida vacía los macros en cero son ruido: ahí
+                          basta el 0 kcal. */}
+                      {items.length > 0
+                        ? `P ${Math.round(mealTotals.protein_g)}  C ${Math.round(mealTotals.carbs_g)}  G ${Math.round(mealTotals.fat_g)}  ·  `
+                        : ''}
+                      {Math.round(mealTotals.energy_kcal)} kcal
+                    </Text>
                   </View>
 
                   {items.map((e) => (
