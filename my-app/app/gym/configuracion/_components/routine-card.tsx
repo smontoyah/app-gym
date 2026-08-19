@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useTheme } from '@/hooks/use-theme';
 import type { RoutineWithExercise } from '@/types/database';
 import type { AppColorScheme } from '@/constants/theme';
+import { SETS_RANGE } from '../_lib/actions';
 
 export type PrescriptionValues = {
   sets?: number;
@@ -84,14 +85,16 @@ export const RoutineCard = memo(function RoutineCard({
         <View style={s.setsControl}>
           <TouchableOpacity
             onPress={() => onUpdatePrescription(routine.id, { sets: routine.sets - 1 })}
-            style={s.setsBtn}
+            disabled={routine.sets <= SETS_RANGE.min}
+            style={[s.setsBtn, routine.sets <= SETS_RANGE.min && s.setsBtnOff]}
           >
             <Text style={s.setsBtnText}>−</Text>
           </TouchableOpacity>
           <Text style={s.setsCount}>{routine.sets}</Text>
           <TouchableOpacity
             onPress={() => onUpdatePrescription(routine.id, { sets: routine.sets + 1 })}
-            style={s.setsBtn}
+            disabled={routine.sets >= SETS_RANGE.max}
+            style={[s.setsBtn, routine.sets >= SETS_RANGE.max && s.setsBtnOff]}
           >
             <Text style={s.setsBtnText}>+</Text>
           </TouchableOpacity>
@@ -157,6 +160,7 @@ const createStyles = (c: AppColorScheme) =>
     prescription: { color: c.textMuted, fontSize: 12, marginTop: 3 },
     setsControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     setsBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: c.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
+    setsBtnOff: { opacity: 0.3 },
     setsBtnText: { color: c.text, fontSize: 18, fontWeight: '600' },
     setsCount: { color: c.text, fontSize: 16, fontWeight: '700', minWidth: 20, textAlign: 'center' },
     removeBtn: { marginLeft: 12, padding: 4 },

@@ -4,7 +4,11 @@ import { supabase } from '@/lib/supabase';
 import { deviceTimeZone } from '@/lib/date';
 import type { ExportRow } from '@/types/database';
 
-/** Orden de columnas del CSV. Coincide con lo que devuelve `export_training_data`. */
+/**
+ * Orden de columnas del CSV. Son las que devuelve `export_training_data`, pero
+ * no en su orden: cada fila se mapea por nombre, así que acá manda lo que se
+ * lee mejor en la hoja de cálculo.
+ */
 const COLUMNS: (keyof ExportRow)[] = [
   'tipo',
   'fecha',

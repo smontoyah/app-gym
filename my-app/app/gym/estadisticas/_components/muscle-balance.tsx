@@ -24,7 +24,8 @@ export const MuscleBalance = memo(function MuscleBalance({ muscles }: MuscleBala
 
   if (muscles.length === 0) return null;
 
-  const max = muscles.reduce((top, muscle) => Math.max(top, muscle.sets), 0);
+  // El piso de 1 evita un ancho `NaN%` si por lo que sea todos vienen en 0.
+  const max = Math.max(1, muscles.reduce((top, muscle) => Math.max(top, muscle.sets), 0));
   const visible = expanded ? muscles : muscles.slice(0, COLLAPSED);
   const hidden = muscles.length - visible.length;
 

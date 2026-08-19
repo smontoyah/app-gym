@@ -5,7 +5,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo } from 'react';
-import { Platform } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
@@ -31,19 +31,22 @@ function RootNavigator() {
   }, [isDark, colors]);
 
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.background);
     if (Platform.OS === 'android') {
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
     }
   }, [isDark, colors.background]);
 
-  if (isLoading) return null;
+  // El splash ya se fue en el primer frame: lo que falta de la sesión se espera
+  // con el fondo y el acento de la app, que se lee como «abriendo» y no como
+  // una pantalla de arranque colgada.
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
 
   return (
     <ThemeProvider value={navTheme}>
@@ -52,7 +55,6 @@ function RootNavigator() {
           <Stack.Screen name="gym" options={{ headerShown: false }} />
           <Stack.Screen name="nutricion" options={{ headerShown: false }} />
           <Stack.Screen name="ajustes" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack.Protected>
         <Stack.Protected guard={!isLoggedIn}>
           <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -64,13 +66,12 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  // Red de seguridad: si por cualquier motivo los providers no ocultan el
-  // splash, lo forzamos para no quedar colgados en la pantalla de carga.
+  // El splash se va en el primer frame de la app, sin esperar la sesión:
+  // `getSession()` refresca el token por red cuando ya expiró (dura una hora),
+  // así que atarle la pantalla de arranque la dejaba varios segundos a la vista
+  // en casi cada apertura. Lo que falte se espera adentro, con el tema propio.
   useEffect(() => {
-    const t = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 5000);
-    return () => clearTimeout(t);
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   return (

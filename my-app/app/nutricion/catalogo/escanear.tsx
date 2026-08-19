@@ -13,10 +13,41 @@ import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nut
 import { saveProduct } from '@/lib/nutricion/actions';
 import {
   EMPTY_DRAFT, MACRO_FIELDS,
-  type DraftSetter, type MacroField, type OcrResult, type ProductDraft,
+  type DraftSetter, type MacroField, type OcrMacros, type OcrResult, type ProductDraft,
 } from '@/lib/nutricion/types';
 
 const str = (v: number | string | null | undefined) => (v == null ? '' : String(v));
+
+/**
+ * Lo leído, volcado al formulario. Las macros son aparte porque pueden faltar:
+ * si la etiqueta no traía la columna por 100 g ni la porción para convertirla,
+ * el resto (nombre, marca, porción, envase) sí se leyó y sería absurdo hacerlo
+ * retipear.
+ */
+function draftFromOcr(data: OcrResult, macros: OcrMacros | null): ProductDraft {
+  return {
+    ...EMPTY_DRAFT,
+    name: data.product_name ?? '',
+    brand: data.brand ?? '',
+    package_size_g: str(data.package_size_g),
+    serving_size_g: str(data.serving_size_g),
+    serving_label: data.serving_label ?? '',
+    servings_per_package: str(data.servings_per_package),
+    ...(macros
+      ? (Object.fromEntries(
+          MACRO_FIELDS.map((f) => [f, str(macros[f])])
+        ) as Record<MacroField, string>)
+      : {}),
+  };
+}
+
+/**
+ * Un campo que el modelo declaró ilegible. Se compara el último segmento con el
+ * sufijo de unidad afuera: con `includes`, un `added_sugars_g` ilegible marcaba
+ * también `sugars_g`, y `saturated_fat_g` marcaba `fat_g`.
+ */
+const fieldKey = (name: string) =>
+  (name.trim().toLowerCase().split('.').pop() ?? '').replace(/_(g|mg|ug|kcal|kj)$/, '');
 
 export default function EscanearScreen() {
   const { colors } = useTheme();
@@ -34,7 +65,7 @@ export default function EscanearScreen() {
   const reviewing = ocr !== null;
   const set: DraftSetter = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const flagged = (name: string) =>
-    !!ocr?.unreadable_fields?.some((f) => f.toLowerCase().includes(name));
+    !!ocr?.unreadable_fields?.some((f) => fieldKey(f) === fieldKey(name));
 
   const pick = (kind: PhotoKind) => async (from: 'camera' | 'library') => {
     const { shot, error } = await capture(kind, from);
@@ -58,27 +89,26 @@ export default function EscanearScreen() {
 
     if (!macros) {
       return Alert.alert(
-        'Faltan datos',
-        'El modelo no encontró la columna por 100 g y tampoco el tamaño de porción para convertirla. Podés llenar los valores a mano.',
-        [{ text: 'Llenar a mano', onPress: () => { setOcr(data); setModel(result.meta.model); } }]
+        'Faltan las macros',
+        'El modelo no encontró la columna por 100 g y tampoco el tamaño de porción para convertirla. El resto de lo que leyó queda cargado; las macros escribilas a mano.',
+        [
+          {
+            text: 'Llenar a mano',
+            onPress: () => {
+              setOcr(data);
+              setModel(result.meta.model);
+              setDerived(false);
+              setDraft(draftFromOcr(data, null));
+            },
+          },
+        ]
       );
     }
 
     setOcr(data);
     setModel(result.meta.model);
     setDerived(wasDerived);
-    setDraft({
-      ...EMPTY_DRAFT,
-      name: data.product_name ?? '',
-      brand: data.brand ?? '',
-      package_size_g: str(data.package_size_g),
-      serving_size_g: str(data.serving_size_g),
-      serving_label: data.serving_label ?? '',
-      servings_per_package: str(data.servings_per_package),
-      ...(Object.fromEntries(
-        MACRO_FIELDS.map((f) => [f, str(macros[f])])
-      ) as Record<MacroField, string>),
-    });
+    setDraft(draftFromOcr(data, macros));
   };
 
   const handleSave = async () => {

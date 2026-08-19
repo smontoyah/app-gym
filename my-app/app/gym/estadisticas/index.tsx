@@ -28,6 +28,7 @@ import { MuscleBalance } from './_components/muscle-balance';
 import { StaleList } from './_components/stale-list';
 import { FilterBar } from './_components/filter-bar';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
+import { useToday } from '@/hooks/use-today';
 import { StatCard } from './_components/stat-card';
 import type { AppColorScheme } from '@/constants/theme';
 
@@ -60,7 +61,8 @@ export default function StatsScreen() {
   const [sort, setSort] = useState<SortKey>('recent');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const range = useMemo(() => buildRange(rangeKey), [rangeKey]);
+  const today = useToday();
+  const range = useMemo(() => buildRange(rangeKey, today), [rangeKey, today]);
 
   const load = useCallback(async () => {
     const payload = await fetchStats(range);

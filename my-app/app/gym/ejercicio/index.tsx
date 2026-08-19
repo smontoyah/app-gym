@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
+import { useAnchoredDate } from '@/hooks/use-today';
 import {
   addDays,
   dayOfWeek,
@@ -115,9 +116,15 @@ export default function WorkoutScreen() {
   const keyboardHeight = useKeyboardHeight();
   const router = useRouter();
 
-  const [dateStr, setDateStr] = useState(todayStr);
+  // La jornada arranca en la fecha del teléfono y se re-ancla al volver a la
+  // app: dejarla en memoria de un día para el otro registraba las series de hoy
+  // en la fecha de ayer.
+  const { dateStr, setDateStr } = useAnchoredDate();
   const [workout, setWorkout] = useState<DayWorkout>(EMPTY_WORKOUT);
   const [loading, setLoading] = useState(true);
+  // Sin esto, un fallo de red se veía igual que un día sin plan: la pantalla
+  // decía «Sin trabajo de fuerza» y parecía que la rutina se había borrado.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rest, setRest] = useState<RestTarget | null>(null);
   const [lastSaved, setLastSaved] = useState<{ exerciseId: string; at: number } | null>(null);
   const handledSaveRef = useRef<number | null>(null);
@@ -133,17 +140,21 @@ export default function WorkoutScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await fetchDayWorkout(dateStr);
+    const { data, error } = await fetchDayWorkout(dateStr);
     setWorkout(data);
+    setLoadError(error);
     setLoading(false);
   }, [dateStr]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const goToDate = useCallback((next: string) => {
-    setRest(null);
-    setDateStr(next);
-  }, []);
+  const goToDate = useCallback(
+    (next: string) => {
+      setRest(null);
+      setDateStr(next);
+    },
+    [setDateStr]
+  );
 
   const handleSaveSets = useCallback(
     async (exerciseId: string, sets: SetInput[], unit: WeightUnit) => {
@@ -161,6 +172,21 @@ export default function WorkoutScreen() {
         )
       );
       const saved = sets.filter((_, i) => results[i].success).map((st) => st.setNumber);
+
+      // Los mensajes ya vienen redactados desde la acción (reps fuera de rango,
+      // RPE inválido, sin sesión, error de red). Antes se descartaban y el
+      // botón simplemente no se ponía verde, sin decir por qué.
+      const failures = results.filter((r) => !r.success);
+      if (failures.length > 0) {
+        const detail = [...new Set(failures.map((r) => r.error ?? 'No se pudo guardar la serie.'))];
+        Alert.alert(
+          saved.length > 0
+            ? `Se guardaron ${saved.length} de ${sets.length} series`
+            : 'No se pudo guardar',
+          detail.join('\n')
+        );
+      }
+
       if (saved.length === 0) return;
 
       setWorkout((prev) => ({
@@ -225,8 +251,9 @@ export default function WorkoutScreen() {
 
   const handleSaveCardio = useCallback(
     async (minutes: string, modality: string | null) => {
-      const { success } = await saveCardioSession({ dateStr, minutes, modality });
+      const { success, error } = await saveCardioSession({ dateStr, minutes, modality });
       if (success) load();
+      else Alert.alert('No se pudo guardar el cardio', error ?? 'Error desconocido');
     },
     [dateStr, load]
   );
@@ -260,6 +287,13 @@ export default function WorkoutScreen() {
 
   const header = (
     <>
+      {loadError !== null && (
+        <TouchableOpacity style={s.errorBox} onPress={load} activeOpacity={0.8}>
+          <Text style={s.errorText}>No se pudo cargar todo el día: {loadError}</Text>
+          <Text style={s.errorHint}>Tocá para reintentar</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={s.dateNav}>
         <TouchableOpacity style={s.navBtn} onPress={() => goToDate(addDays(dateStr, -1))}>
           <Text style={s.navBtnText}>‹</Text>
@@ -307,7 +341,7 @@ export default function WorkoutScreen() {
   const footer = (
     <>
       <CardioCard cardio={workout.cardio} onSave={handleSaveCardio} />
-      {progress.total === 0 && !loading && (
+      {progress.total === 0 && !loading && loadError === null && (
         <View style={s.restDay}>
           <Text style={s.restDayIcon}>🌙</Text>
           <Text style={s.restDayText}>Sin trabajo de fuerza para {DAY_NAMES_FULL[dow]}</Text>
@@ -363,6 +397,9 @@ const createStyles = (c: AppColorScheme) =>
     container: { flex: 1, backgroundColor: c.background },
     content: { padding: 16, paddingBottom: 32 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
+    errorBox: { backgroundColor: c.warningBg, borderRadius: 12, padding: 14, marginBottom: 12 },
+    errorText: { color: c.warning, fontSize: 13, fontWeight: '600' },
+    errorHint: { color: c.textMuted, fontSize: 11, marginTop: 4 },
     dateNav: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     navBtn: {
       width: 36,

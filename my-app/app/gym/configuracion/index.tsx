@@ -29,6 +29,7 @@ export default function ConfigScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<'copy' | 'move' | 'swap' | null>(null);
   const [availableDays, setAvailableDays] = useState<number[]>([]);
 
@@ -37,18 +38,28 @@ export default function ConfigScreen() {
     const result = await fetchRoutinesAndExercises(selectedDay);
     setRoutines(result.routines);
     setExercises(result.exercises);
+    // Igual que en Ejercicio: sin esto, un fallo de red se leía como
+    // «No hay ejercicios para este día».
+    setLoadError(result.error);
     setLoading(false);
   }, [selectedDay]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const handleCreateExercise = async (name: string, muscleGroup: string) => {
-    const { success } = await createExercise(name, muscleGroup);
-    if (success) { setShowAddExercise(false); loadData(); }
+    const { success, error } = await createExercise(name, muscleGroup);
+    if (!success) return Alert.alert('No se pudo crear', error ?? 'Error desconocido');
+    setShowAddExercise(false);
+    loadData();
   };
 
   const handleAddToRoutine = async (exerciseId: string) => {
-    await addExerciseToRoutine({ dayOfWeek: selectedDay, exerciseId, currentCount: routines.length });
+    const { error } = await addExerciseToRoutine({
+      dayOfWeek: selectedDay,
+      exerciseId,
+      currentCount: routines.length,
+    });
+    if (error) Alert.alert('No se pudo agregar', error);
     loadData();
   };
 
@@ -105,9 +116,24 @@ export default function ConfigScreen() {
           {
             text: 'Mover',
             onPress: async () => {
-              const result = await moveRoutineToDay(selectedDay, targetDay);
-              if (result.error) Alert.alert('Aviso', result.error);
-              else { setSelectedDay(targetDay); loadData(); }
+              const from = selectedDay;
+              const result = await moveRoutineToDay(from, targetDay);
+              if (result.error) {
+                Alert.alert('Aviso', result.error);
+                // El RPC pudo haber borrado antes de fallar: no dejamos en
+                // pantalla filas que quizá ya no existen.
+                loadData();
+                return;
+              }
+              // Cambiar de día ya redispara la carga (loadData cambia de
+              // identidad y el useFocusEffect vuelve a correr).
+              setSelectedDay(targetDay);
+              if (result.movedCount === 0) {
+                Alert.alert(
+                  'Nada que mover',
+                  `Los ejercicios de ${DAYS[from]} ya estaban en ${DAYS[targetDay]}, así que ${DAYS[from]} quedó libre.`
+                );
+              }
             },
           },
         ]
@@ -137,7 +163,15 @@ export default function ConfigScreen() {
   const handleRemove = (routineId: string, exerciseName: string) => {
     Alert.alert('Eliminar', `¿Quitar "${exerciseName}" de ${DAYS[selectedDay]}?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => { await deleteRoutineEntry(routineId); loadData(); } },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await deleteRoutineEntry(routineId);
+          if (error) Alert.alert('No se pudo eliminar', error);
+          loadData();
+        },
+      },
     ]);
   };
 
@@ -173,6 +207,12 @@ export default function ConfigScreen() {
       keyboardShouldPersistTaps="handled"
     >
         <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+        {loadError !== null && (
+          <TouchableOpacity style={s.errorBox} onPress={loadData} activeOpacity={0.8}>
+            <Text style={s.errorText}>No se pudo cargar la rutina: {loadError}</Text>
+            <Text style={s.errorHint}>Tocá para reintentar</Text>
+          </TouchableOpacity>
+        )}
         <Text style={s.sectionTitle}>Rutina del {DAYS[selectedDay]}</Text>
         <View style={s.actionRow}>
           <TouchableOpacity style={s.actionButton} onPress={handleOpenCopyPicker}>
@@ -186,7 +226,7 @@ export default function ConfigScreen() {
           </TouchableOpacity>
         </View>
 
-        {routines.length === 0 && !loading && (
+        {routines.length === 0 && !loading && loadError === null && (
           <Text style={s.emptyText}>No hay ejercicios para este día</Text>
         )}
         {routines.map((r, index) => (
@@ -277,6 +317,9 @@ const createStyles = (c: AppColorScheme) =>
     content: { padding: 16, paddingBottom: 40 },
     sectionTitle: { color: c.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
     emptyText: { color: c.textMuted, fontSize: 14, marginBottom: 16 },
+    errorBox: { backgroundColor: c.warningBg, borderRadius: 12, padding: 14, marginBottom: 12 },
+    errorText: { color: c.warning, fontSize: 13, fontWeight: '600' },
+    errorHint: { color: c.textMuted, fontSize: 11, marginTop: 4 },
     filterRow: { marginBottom: 12, flexGrow: 0 },
     filterContent: { gap: 8 },
     filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: c.surfaceSecondary },

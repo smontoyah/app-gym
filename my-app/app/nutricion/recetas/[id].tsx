@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
   Alert, ActivityIndicator, Modal,
@@ -20,6 +20,9 @@ import {
   fetchRecipe, updateRecipe, addItem, updateItemQuantity, removeItem, deleteRecipe,
 } from '@/lib/nutricion/recetas';
 
+/** Tope de `recipe_items.quantity_g` en la base. */
+const MAX_ITEM_G = 20000;
+
 export default function RecetaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
@@ -38,6 +41,8 @@ export default function RecetaScreen() {
   const [products, setProducts] = useState<FoodProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [yieldDraft, setYieldDraft] = useState('');
+  /** Peso del preparado que ya está en la base (o que se acaba de mandar). */
+  const sentYieldRef = useRef<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
   const [pending, setPending] = useState<FoodProduct | null>(null);
@@ -53,7 +58,9 @@ export default function RecetaScreen() {
     setRecipe(res.recipe);
     setItems(res.items);
     setNutrition(res.nutrition);
-    setYieldDraft(res.recipe?.yield_g == null ? '' : String(res.recipe.yield_g));
+    const storedYield = res.recipe?.yield_g == null ? '' : String(res.recipe.yield_g);
+    setYieldDraft(storedYield);
+    sentYieldRef.current = storedYield;
     setProducts(prods.products);
     setLoading(false);
   }, [id]);
@@ -64,10 +71,26 @@ export default function RecetaScreen() {
 
   const saveYield = async () => {
     if (!id) return;
+    // Tocar «Guardar» con el campo enfocado dispara el onBlur y el onPress, uno
+    // detrás del otro: sin esto se mandaba el mismo UPDATE dos veces.
+    const raw = yieldDraft.trim();
+    if (sentYieldRef.current === raw) return;
+
     const value = parseNum(yieldDraft);
+    // La tabla exige `yield_g > 0` (o null): sin esto el 0 volvía como el texto
+    // crudo del CHECK de Postgres.
+    if (value !== null && value <= 0) {
+      return Alert.alert(
+        'Peso del preparado',
+        'Tiene que ser mayor que 0. Dejalo vacío si no pesaste la olla.'
+      );
+    }
+    sentYieldRef.current = raw;
     const { error } = await updateRecipe(id, { yield_g: value });
-    if (error) Alert.alert('Aviso', error);
-    else load();
+    if (error) {
+      sentYieldRef.current = null; // que se pueda reintentar el mismo valor
+      Alert.alert('Aviso', error);
+    } else load();
   };
 
   const closeSheet = () => {
@@ -85,6 +108,13 @@ export default function RecetaScreen() {
     if (!pending || !id) return;
     const value = quantityToGrams(qty, pending);
     if (value === null) return Alert.alert('Cantidad', 'Escribí cuánto va en la receta.');
+    // El mismo techo que el CHECK de `recipe_items`, dicho en castellano.
+    if (value > MAX_ITEM_G) {
+      return Alert.alert(
+        'Cantidad',
+        `Son ${formatAmount(value)} g de un solo ingrediente. Revisá la cantidad.`
+      );
+    }
 
     const { error } = editingId
       ? await updateItemQuantity(editingId, value)

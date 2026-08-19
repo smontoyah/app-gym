@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { getUserId } from '@/lib/auth-helpers';
+import { currentUserId } from '@/lib/auth-helpers';
 import type {
   MealSlot, NutritionGoals, NutritionLogMacros,
 } from '@/types/database';
@@ -40,7 +40,9 @@ const ZERO: DayTotals = { energy_kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fi
 export function sumTotals(entries: NutritionLogMacros[]): DayTotals {
   return entries.reduce<DayTotals>(
     (acc, e) => {
-      for (const f of GOAL_FIELDS) acc[f] += e[f] ?? 0;
+      // `Number()` explícito: si PostgREST llegara a mandar los `numeric` como
+      // texto, un `+=` los concatenaría y el total del día sería basura.
+      for (const f of GOAL_FIELDS) acc[f] += Number(e[f] ?? 0);
       return acc;
     },
     { ...ZERO }
@@ -85,9 +87,11 @@ export async function addEntry(params: {
   quantityG: number;
   note?: string;
 }): Promise<{ error: string | null }> {
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { error: auth.error };
+
   const { error } = await supabase.from('nutrition_logs').insert({
-    user_id: userId,
+    user_id: auth.userId,
     product_id: params.productId ?? null,
     recipe_id: params.recipeId ?? null,
     logged_on: params.loggedOn,
@@ -111,10 +115,12 @@ export async function fetchGoals(): Promise<{ goals: NutritionGoals | null; erro
 export async function saveGoals(
   values: Record<GoalField, number | null>
 ): Promise<{ error: string | null }> {
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { error: auth.error };
+
   // upsert sobre la PK (user_id): hay una sola fila de objetivo por usuario.
   const { error } = await supabase
     .from('nutrition_goals')
-    .upsert({ user_id: userId, ...values }, { onConflict: 'user_id' });
+    .upsert({ user_id: auth.userId, ...values }, { onConflict: 'user_id' });
   return { error: error?.message ?? null };
 }

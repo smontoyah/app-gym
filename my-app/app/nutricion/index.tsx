@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, MealSlot, NutritionGoals, NutritionLogMacros, RecipeNutrition } from '@/types/database';
-import { todayStr, addDays, formatLong, isToday } from '@/lib/date';
+import { addDays, formatLong, isToday } from '@/lib/date';
+import { useAnchoredDate } from '@/hooks/use-today';
 import { MacroBar } from '@/components/nutricion/macro-bar';
 import { AddEntryModal, type Pick } from '@/components/nutricion/add-entry-modal';
 import {
@@ -20,7 +21,9 @@ export default function DiarioScreen() {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [day, setDay] = useState(todayStr());
+  // Igual que en Ejercicio: el día se re-ancla al reloj del teléfono cuando la
+  // app vuelve al frente, para no seguir sumando comidas al día de ayer.
+  const { dateStr: day, setDateStr: setDay } = useAnchoredDate();
   const [entries, setEntries] = useState<NutritionLogMacros[]>([]);
   const [totals, setTotals] = useState<DayTotals | null>(null);
   const [goals, setGoals] = useState<NutritionGoals | null>(null);
@@ -43,6 +46,11 @@ export default function DiarioScreen() {
     setRecipes(recRes.recipes);
     setLoading(false);
   }, [day]);
+
+  // Al cambiar de día se marca cargando, para no dejar a la vista los totales
+  // del día anterior como si fueran los del nuevo. Al volver a la pestaña no:
+  // ahí lo que ya está en pantalla sigue siendo cierto.
+  useEffect(() => { setLoading(true); }, [day]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

@@ -1,6 +1,6 @@
 import { File } from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
-import { getUserId } from '@/lib/auth-helpers';
+import { currentUserId } from '@/lib/auth-helpers';
 import type { FoodProduct, FoodProductUsage } from '@/types/database';
 import { MACRO_FIELDS, type MacroField, type OcrResult, type ProductDraft } from './types';
 import type { Shot } from './scan';
@@ -53,8 +53,24 @@ export function validateDraft(draft: ProductDraft): string | null {
   if (draft.intake_unit === 'unidad' && (unitWeight === null || unitWeight <= 0)) {
     return 'Si el producto se ingresa en unidades, escribí cuánto pesa una: sin esa equivalencia no se puede convertir a gramos.';
   }
+  if (unitWeight !== null && unitWeight <= 0) {
+    return 'El peso de una unidad tiene que ser mayor que 0. Dejalo vacío si no aplica.';
+  }
+
+  const serving = parseNum(draft.serving_size_g);
+  if (serving !== null && serving <= 0) {
+    return 'Los gramos por porción tienen que ser mayores que 0. Dejalo vacío si la etiqueta no los trae.';
+  }
+
+  const energy = parseNum(draft.energy_kcal);
+  if (energy !== null && (energy < 0 || energy > MAX_KCAL_PER_100G)) {
+    return `Las calorías por 100 g tienen que estar entre 0 y ${MAX_KCAL_PER_100G}: ni el aceite puro pasa de ahí. Si el número que tenés es por porción, convertilo primero.`;
+  }
   return null;
 }
+
+/** Mismo techo que el CHECK `food_products_energy_sane`: la grasa pura da 900. */
+const MAX_KCAL_PER_100G = 900;
 
 /**
  * Guarda el producto y después sube las fotos.
@@ -70,9 +86,12 @@ export async function saveProduct(params: {
   label: Shot | null;
   front: Shot | null;
 }): Promise<{ id: string | null; error: string | null; photoWarning: string | null }> {
-  const userId = await getUserId();
   const invalid = validateDraft(params.draft);
   if (invalid) return { id: null, error: invalid, photoWarning: null };
+
+  const auth = await currentUserId();
+  if (!auth.userId) return { id: null, error: auth.error, photoWarning: null };
+  const userId = auth.userId;
 
   const row = draftToRow(params.draft);
 

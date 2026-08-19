@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
-import { getUserId } from '@/lib/auth-helpers';
+import { currentUserId } from '@/lib/auth-helpers';
 import { dayOfWeek } from '@/lib/date';
-import { formatWeight, fromKg, parseWeight, toKg, type WeightUnit } from '@/lib/units';
+import { formatWeight, fromKg, labelWeight, parseWeight, toKg, type WeightUnit } from '@/lib/units';
 import type { PreviousSetRow, RoutineWithExercise } from '@/types/database';
 import { loadWeightUnits } from './unit-prefs';
 import type {
@@ -26,6 +26,18 @@ const LOAD_STEP_KG = 2.5;
  * Un solo dedo torpe dejaba la pantalla de estadísticas inservible.
  */
 const MAX_REPS = 100;
+
+/**
+ * Tope de carga por serie, en kg. Mismo filtro de tipeo que `MAX_REPS`, que le
+ * faltaba a la otra mitad del renglón: un `1000` en vez de `100` ensuciaba el
+ * 1RM estimado, el récord y el volumen igual que un `913` en las repeticiones.
+ * 500 kg deja pasar cualquier levantamiento real de gimnasio (el récord mundial
+ * de peso muerto anda por ahí) y atrapa el dígito de más, también capturando en
+ * libras: 2200 lb son 998 kg.
+ *
+ * El 0 sí es válido: los ejercicios sin carga se registran así.
+ */
+const MAX_WEIGHT_KG = 500;
 
 /** '13' → 13 · '13 c/u' → 13 · '18' → 18 · null → null */
 function parseTargetReps(target: string | null): number | null {
@@ -107,7 +119,6 @@ function sessionWindow(timestamps: (string | null | undefined)[]): SessionWindow
 export async function fetchDayWorkout(
   dateStr: string
 ): Promise<{ data: DayWorkout; error: string | null }> {
-  const userId = await getUserId();
   const dow = dayOfWeek(dateStr);
   const empty: DayWorkout = {
     blocks: [],
@@ -115,6 +126,10 @@ export async function fetchDayWorkout(
     phase: null,
     session: null,
   };
+
+  const auth = await currentUserId();
+  if (!auth.userId) return { data: empty, error: auth.error };
+  const userId = auth.userId;
 
   const [routinesRes, cardioPlanRes, cardioLogRes, phaseRes] = await Promise.all([
     supabase
@@ -221,7 +236,13 @@ export async function fetchDayWorkout(
     cardio.log?.created_at,
   ]);
 
-  return { data: { blocks: groupIntoBlocks(exercises), cardio, phase, session }, error: null };
+  // Si `previous_sets` falló, el día se muestra igual: lo que falta es la
+  // referencia de la sesión anterior y la sugerencia de carga. Se devuelve como
+  // error para que la pantalla lo diga en vez de dejarlas ausentes sin motivo.
+  return {
+    data: { blocks: groupIntoBlocks(exercises), cardio, phase, session },
+    error: previousRes.error?.message ?? null,
+  };
 }
 
 /** `loggedAt` es la hora del servidor: con ella se mueve el fin de la jornada. */
@@ -258,19 +279,27 @@ export async function saveWorkoutSet(params: {
     };
   }
   const parsedWeight = toKg(enteredWeight, unit);
+  if (parsedWeight > MAX_WEIGHT_KG) {
+    return {
+      success: false,
+      error: `La carga no puede pasar de ${labelWeight(MAX_WEIGHT_KG, unit)}`,
+      loggedAt: null,
+    };
+  }
 
   const parsedRpe = rpe ? parseFloat(rpe) : NaN;
   if (rpe && (!Number.isFinite(parsedRpe) || parsedRpe < 1 || parsedRpe > 10)) {
     return { success: false, error: 'El RPE debe estar entre 1 y 10', loggedAt: null };
   }
 
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { success: false, error: auth.error, loggedAt: null };
 
   const { data, error } = await supabase
     .from('workout_logs')
     .upsert(
       {
-        user_id: userId,
+        user_id: auth.userId,
         exercise_id: exerciseId,
         workout_date: dateStr,
         set_number: setNumber,
@@ -278,7 +307,13 @@ export async function saveWorkoutSet(params: {
         weight: parsedWeight,
         rpe: rpe ? parsedRpe : null,
       },
-      { onConflict: 'exercise_id,workout_date,set_number', ignoreDuplicates: false }
+      // El usuario va en el conflicto: el índice sin él sólo funciona mientras
+      // cada ejercicio sea de una sola persona (ver la migración
+      // `workout_logs_unique_por_usuario`).
+      {
+        onConflict: 'user_id,exercise_id,workout_date,set_number',
+        ignoreDuplicates: false,
+      }
     )
     .select('created_at')
     .single();
@@ -297,11 +332,12 @@ export async function saveCardioSession(params: {
     return { success: false, error: 'Minutos inválidos' };
   }
 
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { success: false, error: auth.error };
 
   const { error } = await supabase.from('cardio_logs').upsert(
     {
-      user_id: userId,
+      user_id: auth.userId,
       workout_date: params.dateStr,
       minutes: parsed,
       modality: params.modality,

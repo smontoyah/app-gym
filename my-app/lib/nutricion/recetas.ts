@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { getUserId } from '@/lib/auth-helpers';
+import { currentUserId } from '@/lib/auth-helpers';
 import type { Recipe, RecipeItemWithProduct, RecipeNutrition } from '@/types/database';
 
 export async function fetchRecipes(): Promise<{
@@ -51,10 +51,12 @@ export async function fetchRecipe(id: string): Promise<{
 }
 
 export async function createRecipe(name: string): Promise<{ id: string | null; error: string | null }> {
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { id: null, error: auth.error };
+
   const { data, error } = await supabase
     .from('recipes')
-    .insert({ user_id: userId, name: name.trim() })
+    .insert({ user_id: auth.userId, name: name.trim() })
     .select('id')
     .single();
   return { id: data?.id ?? null, error: error?.message ?? null };
@@ -74,9 +76,11 @@ export async function addItem(
   quantityG: number,
   sortOrder: number
 ): Promise<{ error: string | null }> {
-  const userId = await getUserId();
+  const auth = await currentUserId();
+  if (!auth.userId) return { error: auth.error };
+
   const { error } = await supabase.from('recipe_items').insert({
-    user_id: userId,
+    user_id: auth.userId,
     recipe_id: recipeId,
     product_id: productId,
     quantity_g: quantityG,
