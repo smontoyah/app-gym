@@ -9,12 +9,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct } from '@/types/database';
-import { Field } from '@/components/nutricion/field';
+import { ProductFields } from '@/components/nutricion/product-fields';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import {
   fetchProduct, productToDraft, updateProduct, deleteProduct, signPhotoUrls,
 } from '@/lib/nutricion/actions';
-import { MACRO_FIELDS, MACRO_LABELS, type ProductDraft } from '@/lib/nutricion/types';
+import type { ProductDraft } from '@/lib/nutricion/types';
 
 export default function ProductoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -109,18 +109,7 @@ export default function ProductoScreen() {
         </View>
       )}
 
-      <Text style={s.section}>Producto</Text>
-      <Field label="Nombre" value={draft.name} onChange={set('name')} />
-      <Field label="Marca" value={draft.brand} onChange={set('brand')} placeholder="Sin marca" />
-      <Field label="Porción (como dice la etiqueta)" value={draft.serving_label} onChange={set('serving_label')} placeholder="1 cucharada (15 g)" />
-      <Field label="Gramos por porción" value={draft.serving_size_g} onChange={set('serving_size_g')} numeric suffix="g" />
-      <Field label="Contenido del envase" value={draft.package_size_g} onChange={set('package_size_g')} numeric suffix="g" />
-      <Field label="Porciones por envase" value={draft.servings_per_package} onChange={set('servings_per_package')} numeric />
-
-      <Text style={s.section}>Por 100 g</Text>
-      {MACRO_FIELDS.map((f) => (
-        <Field key={f} label={MACRO_LABELS[f]} value={draft[f]} onChange={set(f)} numeric />
-      ))}
+      <ProductFields draft={draft} onChange={set} />
 
       <TouchableOpacity style={[s.primary, saving && s.disabled]} onPress={handleSave} disabled={saving}>
         <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar cambios'}</Text>
@@ -150,7 +139,6 @@ const createStyles = (c: AppColorScheme) =>
     photoWrap: { flex: 1 },
     photo: { width: '100%', height: 150, borderRadius: 10, backgroundColor: c.surfaceSecondary },
     photoLabel: { color: c.textMuted, fontSize: 11, marginTop: 4, textAlign: 'center' },
-    section: { color: c.text, fontSize: 16, fontWeight: '700', marginTop: 18, marginBottom: 8 },
     primary: { backgroundColor: c.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 22 },
     primaryText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
     disabled: { opacity: 0.45 },

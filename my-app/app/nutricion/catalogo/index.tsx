@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
+  Alert, ActivityIndicator, Modal,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,6 +17,8 @@ export default function CatalogoScreen() {
   const [products, setProducts] = useState<FoodProduct[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [choosing, setChoosing] = useState(false);
 
   const load = useCallback(async () => {
     const { products, error } = await fetchProducts();
@@ -24,6 +29,21 @@ export default function CatalogoScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return products;
+    // Busca por nombre y por marca: "alpina" tiene que traer los yogures aunque
+    // el nombre no la mencione.
+    return products.filter(
+      (p) => p.name.toLowerCase().includes(q) || (p.brand ?? '').toLowerCase().includes(q)
+    );
+  }, [products, query]);
+
+  const go = (route: '/nutricion/catalogo/escanear' | '/nutricion/catalogo/manual') => {
+    setChoosing(false);
+    router.push(route);
+  };
 
   const confirmDelete = (p: FoodProduct) =>
     Alert.alert('Borrar producto', `¿Borrar “${p.name}”?`, [
@@ -41,19 +61,51 @@ export default function CatalogoScreen() {
 
   return (
     <View style={s.flex}>
-      <ScrollView style={s.flex} contentContainerStyle={s.content}>
+      {/* El buscador vive fuera del ScrollView para no perderlo al bajar la lista. */}
+      {!loading && products.length > 0 && (
+        <View style={s.searchBar}>
+          <Text style={s.searchIcon}>🔍</Text>
+          <TextInput
+            style={s.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar por nombre o marca"
+            placeholderTextColor={colors.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={10}>
+              <Text style={s.searchClear}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      <ScrollView
+        style={s.flex}
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         {loading ? (
           <ActivityIndicator style={s.loader} color={colors.accent} />
         ) : products.length === 0 ? (
           <View style={s.empty}>
             <Text style={s.emptyTitle}>Todavía no hay productos</Text>
             <Text style={s.emptyText}>
-              Escaneá la tabla nutricional de algo que tengas en la cocina. Cada producto
-              se escanea una sola vez y después lo reutilizás en el diario y en las recetas.
+              Escaneá la tabla nutricional de algo que tengas en la cocina, o cargalo a
+              mano. Cada producto se crea una sola vez y después lo reutilizás en el
+              diario y en las recetas.
             </Text>
           </View>
+        ) : shown.length === 0 ? (
+          <View style={s.empty}>
+            <Text style={s.emptyTitle}>Sin resultados</Text>
+            <Text style={s.emptyText}>Ningún producto coincide con “{query.trim()}”.</Text>
+          </View>
         ) : (
-          products.map((p) => {
+          shown.map((p) => {
             const url = p.front_photo_path ? urls[p.front_photo_path] : undefined;
             return (
               <TouchableOpacity
@@ -87,9 +139,43 @@ export default function CatalogoScreen() {
         )}
       </ScrollView>
 
-      <TouchableOpacity style={s.fab} onPress={() => router.push('/nutricion/catalogo/escanear')}>
-        <Text style={s.fabText}>Escanear producto</Text>
+      <TouchableOpacity style={s.fab} onPress={() => setChoosing(true)}>
+        <Text style={s.fabText}>Nuevo producto</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={choosing}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setChoosing(false)}>
+        <TouchableOpacity
+          style={s.backdrop}
+          activeOpacity={1}
+          onPress={() => setChoosing(false)}>
+          {/* activeOpacity=1 sin onPress: absorbe el tap para que tocar la hoja no la cierre. */}
+          <TouchableOpacity style={s.sheet} activeOpacity={1}>
+            <Text style={s.sheetTitle}>Nuevo producto</Text>
+
+            <TouchableOpacity style={s.option} onPress={() => go('/nutricion/catalogo/escanear')}>
+              <Text style={s.optionTitle}>Escanear etiqueta</Text>
+              <Text style={s.optionHint}>
+                Foto de la tabla nutricional y del frente; la app las lee y llena los campos.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.option} onPress={() => go('/nutricion/catalogo/manual')}>
+              <Text style={s.optionTitle}>Ingresar a mano</Text>
+              <Text style={s.optionHint}>
+                Tomás una foto si querés y escribís vos los valores por 100 g.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.sheetCancel} onPress={() => setChoosing(false)}>
+              <Text style={s.sheetCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -99,6 +185,19 @@ const createStyles = (c: AppColorScheme) =>
     flex: { flex: 1, backgroundColor: c.background },
     content: { padding: 16, paddingBottom: 90 },
     loader: { marginTop: 40 },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginHorizontal: 16,
+      marginTop: 12,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: c.surfaceSecondary,
+    },
+    searchIcon: { fontSize: 13 },
+    searchInput: { flex: 1, color: c.text, fontSize: 14, paddingVertical: 10 },
+    searchClear: { color: c.textMuted, fontSize: 14, paddingHorizontal: 2 },
     empty: { marginTop: 60, paddingHorizontal: 12 },
     emptyTitle: { color: c.text, fontSize: 17, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
     emptyText: { color: c.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 20 },
@@ -131,4 +230,25 @@ const createStyles = (c: AppColorScheme) =>
       alignItems: 'center',
     },
     fabText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: c.background,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      padding: 16,
+      paddingBottom: 28,
+    },
+    sheetTitle: { color: c.text, fontSize: 17, fontWeight: '700', textAlign: 'center', marginBottom: 14 },
+    option: {
+      backgroundColor: c.surface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 14,
+      marginBottom: 10,
+    },
+    optionTitle: { color: c.text, fontSize: 15, fontWeight: '700' },
+    optionHint: { color: c.textSecondary, fontSize: 12, marginTop: 4, lineHeight: 17 },
+    sheetCancel: { alignItems: 'center', paddingVertical: 12, marginTop: 2 },
+    sheetCancelText: { color: c.accent, fontSize: 15, fontWeight: '600' },
   });

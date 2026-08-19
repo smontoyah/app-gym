@@ -7,20 +7,14 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import { PhotoSlot } from '@/components/nutricion/photo-slot';
-import { Field } from '@/components/nutricion/field';
+import { ProductFields } from '@/components/nutricion/product-fields';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nutricion/scan';
 import { saveProduct } from '@/lib/nutricion/actions';
 import {
-  MACRO_FIELDS, MACRO_LABELS,
+  EMPTY_DRAFT, MACRO_FIELDS,
   type MacroField, type OcrResult, type ProductDraft,
 } from '@/lib/nutricion/types';
-
-const EMPTY: ProductDraft = {
-  name: '', brand: '', package_size_g: '', serving_size_g: '',
-  serving_label: '', servings_per_package: '',
-  ...(Object.fromEntries(MACRO_FIELDS.map((f) => [f, ''])) as Record<MacroField, string>),
-};
 
 const str = (v: number | string | null | undefined) => (v == null ? '' : String(v));
 
@@ -35,7 +29,7 @@ export default function EscanearScreen() {
   const [ocr, setOcr] = useState<OcrResult | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const [derived, setDerived] = useState(false);
-  const [draft, setDraft] = useState<ProductDraft>(EMPTY);
+  const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
 
   const reviewing = ocr !== null;
   const set = (k: keyof ProductDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
@@ -169,29 +163,12 @@ export default function EscanearScreen() {
             </View>
           )}
 
-          <Text style={s.section}>Producto</Text>
-          <Field label="Nombre" value={draft.name} onChange={set('name')} flagged={flagged('product_name')} />
-          <Field label="Marca" value={draft.brand} onChange={set('brand')} flagged={flagged('brand')} placeholder="Sin marca" />
-          <Field label="Porción (como dice la etiqueta)" value={draft.serving_label} onChange={set('serving_label')} placeholder="1 cucharada (15 g)" />
-          <Field label="Gramos por porción" value={draft.serving_size_g} onChange={set('serving_size_g')} numeric suffix="g" flagged={flagged('serving_size')} />
-          <Field label="Contenido del envase" value={draft.package_size_g} onChange={set('package_size_g')} numeric suffix="g" />
-          <Field label="Porciones por envase" value={draft.servings_per_package} onChange={set('servings_per_package')} numeric />
-
-          <Text style={s.section}>Por 100 g</Text>
-          <Text style={s.sectionHint}>
-            Todo se guarda por 100 g: es la única base que deja sumar productos distintos
-            y escalar por los gramos que realmente comas.
-          </Text>
-          {MACRO_FIELDS.map((f) => (
-            <Field
-              key={f}
-              label={MACRO_LABELS[f]}
-              value={draft[f]}
-              onChange={set(f)}
-              numeric
-              flagged={flagged(f)}
-            />
-          ))}
+          <ProductFields
+            draft={draft}
+            onChange={set}
+            flagged={flagged}
+            hint="Todo se guarda por 100 g: es la única base que deja sumar productos distintos y escalar por los gramos que realmente comas."
+          />
 
           <TouchableOpacity
             style={[s.primary, saving && s.disabled]}
@@ -227,8 +204,6 @@ const createStyles = (c: AppColorScheme) =>
     primaryText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
     disabled: { opacity: 0.45 },
     footnote: { color: c.textMuted, fontSize: 12, textAlign: 'center', marginTop: 10 },
-    section: { color: c.text, fontSize: 16, fontWeight: '700', marginTop: 18, marginBottom: 4 },
-    sectionHint: { color: c.textMuted, fontSize: 12, marginBottom: 12, lineHeight: 17 },
     banner: {
       backgroundColor: c.accentBg,
       borderRadius: 8,

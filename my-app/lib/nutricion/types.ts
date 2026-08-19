@@ -89,3 +89,14 @@ export type ProductDraft = {
   serving_label: string;
   servings_per_package: string;
 } & Record<MacroField, string>;
+
+/** Borrador vacío: punto de partida tanto del escaneo como de la carga manual. */
+export const EMPTY_DRAFT: ProductDraft = {
+  name: '',
+  brand: '',
+  package_size_g: '',
+  serving_size_g: '',
+  serving_label: '',
+  servings_per_package: '',
+  ...(Object.fromEntries(MACRO_FIELDS.map((f) => [f, ''])) as Record<MacroField, string>),
+};
