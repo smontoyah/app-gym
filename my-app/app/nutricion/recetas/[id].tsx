@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, Modal, Platform,
+  Alert, ActivityIndicator, Modal,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -24,9 +24,13 @@ export default function RecetaScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const keyboardHeight = useKeyboardHeight();
-  // El diálogo del Modal se encoge solo en Android; en iOS hay que apartarlo.
-  const sheetInset = Platform.OS === 'ios' ? keyboardHeight : 0;
+  /**
+   * Con edge-to-edge el diálogo del Modal tampoco se encoge en Android: RN lo
+   * abre con la barra de navegación translúcida, la ventana queda a pantalla
+   * completa y el teclado se dibuja encima de la hoja. Hay que apartarla a mano
+   * en las dos plataformas.
+   */
+  const sheetInset = useKeyboardHeight();
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [items, setItems] = useState<RecipeItemWithProduct[]>([]);

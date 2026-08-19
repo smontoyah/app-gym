@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
@@ -36,9 +35,12 @@ type ExportModalProps = {
 export function ExportModal({ visible, onClose }: ExportModalProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
-  // Android encoge el diálogo solo; en iOS lo centramos en el espacio libre.
-  const keyboardHeight = useKeyboardHeight();
-  const overlayInset = Platform.OS === 'ios' ? keyboardHeight : 0;
+  /**
+   * Con edge-to-edge el diálogo del Modal no se encoge en ninguna plataforma
+   * (RN lo abre a pantalla completa con la barra de navegación translúcida),
+   * así que el teclado tapa la hoja: la apartamos a mano en las dos.
+   */
+  const overlayInset = useKeyboardHeight();
 
   const [from, setFrom] = useState(() => addDays(todayStr(), -30));
   const [to, setTo] = useState(todayStr);
