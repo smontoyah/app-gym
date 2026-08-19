@@ -11,6 +11,11 @@ import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-v
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, Recipe, RecipeItemWithProduct, RecipeNutrition } from '@/types/database';
 import { fetchProducts, parseNum } from '@/lib/nutricion/actions';
+import { QuantityInput } from '@/components/nutricion/quantity-input';
+import {
+  emptyQuantity, formatAmount, formatQuantityShort, quantityFromGrams, quantityToGrams,
+  supportsUnits, type Quantity,
+} from '@/lib/nutricion/unidades';
 import {
   fetchRecipe, updateRecipe, addItem, updateItemQuantity, removeItem, deleteRecipe,
 } from '@/lib/nutricion/recetas';
@@ -32,7 +37,8 @@ export default function RecetaScreen() {
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
   const [pending, setPending] = useState<FoodProduct | null>(null);
-  const [grams, setGrams] = useState('');
+  /** Cantidad del ingrediente tal como se escribe: el texto y su unidad. */
+  const [qty, setQty] = useState<Quantity>({ value: '', unit: 'g' });
   /** id del ingrediente que se está editando; null cuando se agrega uno nuevo. */
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -61,13 +67,20 @@ export default function RecetaScreen() {
   };
 
   const closeSheet = () => {
-    setPicking(false); setPending(null); setGrams(''); setQuery(''); setEditingId(null);
+    setPicking(false); setPending(null); setQuery(''); setEditingId(null);
+    setQty({ value: '', unit: 'g' });
+  };
+
+  /** Elegir el ingrediente fija la unidad con la que se escribe su cantidad. */
+  const choose = (product: FoodProduct) => {
+    setPending(product);
+    setQty(emptyQuantity(product));
   };
 
   const confirmAddItem = async () => {
-    const value = parseNum(grams);
-    if (!value || value <= 0) return Alert.alert('Cantidad', 'Escribí cuántos gramos van.');
     if (!pending || !id) return;
+    const value = quantityToGrams(qty, pending);
+    if (value === null) return Alert.alert('Cantidad', 'Escribí cuánto va en la receta.');
 
     const { error } = editingId
       ? await updateItemQuantity(editingId, value)
@@ -85,7 +98,7 @@ export default function RecetaScreen() {
    */
   const editQuantity = (item: RecipeItemWithProduct) => {
     setPending(item.food_products);
-    setGrams(String(item.quantity_g));
+    setQty(quantityFromGrams(item.quantity_g, item.food_products));
     setEditingId(item.id);
     setPicking(true);
   };
@@ -152,9 +165,11 @@ export default function RecetaScreen() {
               <Text style={s.itemName} numberOfLines={1}>{it.food_products.name}</Text>
               <Text style={s.itemMeta}>
                 {Math.round((it.food_products.energy_kcal ?? 0) * Number(it.quantity_g) / 100)} kcal
+                {/* Los gramos siguen a la vista: son la base del peso del preparado. */}
+                {supportsUnits(it.food_products) ? ` · ${formatAmount(Number(it.quantity_g))} g` : ''}
               </Text>
             </View>
-            <Text style={s.itemGrams}>{it.quantity_g} g</Text>
+            <Text style={s.itemGrams}>{formatQuantityShort(it.quantity_g, it.food_products)}</Text>
           </TouchableOpacity>
         ))}
 
@@ -245,7 +260,7 @@ export default function RecetaScreen() {
                     </Text>
                   ) : (
                     available.map((p) => (
-                      <TouchableOpacity key={p.id} style={s.item} onPress={() => setPending(p)}>
+                      <TouchableOpacity key={p.id} style={s.item} onPress={() => choose(p)}>
                         <View style={s.itemInfo}>
                           <Text style={s.itemName}>{p.name}</Text>
                           <Text style={s.itemMeta}>
@@ -260,16 +275,8 @@ export default function RecetaScreen() {
             ) : (
               <View style={s.sheetList}>
                 <Text style={s.pendingName}>{pending.name}</Text>
-                <Text style={s.explain}>¿Cuántos gramos van en la receta?</Text>
-                <TextInput
-                  style={s.gramsInput}
-                  value={grams}
-                  onChangeText={setGrams}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.placeholder}
-                  autoFocus
-                />
+                <Text style={s.explain}>¿Cuánto va en la receta?</Text>
+                <QuantityInput spec={pending} quantity={qty} onChange={setQty} autoFocus />
                 <TouchableOpacity style={s.primary} onPress={confirmAddItem}>
                   <Text style={s.primaryText}>{editingId ? 'Guardar' : 'Agregar'}</Text>
                 </TouchableOpacity>
@@ -339,10 +346,6 @@ const createStyles = (c: AppColorScheme) =>
     searchList: { flex: 1, paddingHorizontal: 16, marginTop: 12 },
     empty: { color: c.textMuted, fontSize: 13, textAlign: 'center', marginTop: 24 },
     pendingName: { color: c.text, fontSize: 18, fontWeight: '700', marginBottom: 6 },
-    gramsInput: {
-      backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: 8,
-      paddingHorizontal: 12, paddingVertical: 12, color: c.text, fontSize: 20, fontWeight: '700',
-    },
     primary: { backgroundColor: c.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
     primaryText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
   });

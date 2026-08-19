@@ -7,12 +7,14 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/hooks/use-auth';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct } from '@/types/database';
 import { fetchProducts, signPhotoUrls, deleteProduct } from '@/lib/nutricion/actions';
 
 export default function CatalogoScreen() {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [products, setProducts] = useState<FoodProduct[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -95,8 +97,8 @@ export default function CatalogoScreen() {
             <Text style={s.emptyTitle}>Todavía no hay productos</Text>
             <Text style={s.emptyText}>
               Escaneá la tabla nutricional de algo que tengas en la cocina, o cargalo a
-              mano. Cada producto se crea una sola vez y después lo reutilizás en el
-              diario y en las recetas.
+              mano. Cada producto se carga una sola vez, queda disponible para todos y
+              después se reutiliza en el diario y en las recetas.
             </Text>
           </View>
         ) : shown.length === 0 ? (
@@ -112,7 +114,7 @@ export default function CatalogoScreen() {
                 key={p.id}
                 style={s.card}
                 onPress={() => router.push(`/nutricion/catalogo/${p.id}`)}
-                onLongPress={() => confirmDelete(p)}>
+                onLongPress={p.user_id === user?.id ? () => confirmDelete(p) : undefined}>
                 {url ? (
                   // cacheKey estable: la URL firmada cambia en cada refresco y sin
                   // esto expo-image volvería a descargar la miniatura cada sesión.

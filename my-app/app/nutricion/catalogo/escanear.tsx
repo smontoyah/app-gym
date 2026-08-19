@@ -13,7 +13,7 @@ import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nut
 import { saveProduct } from '@/lib/nutricion/actions';
 import {
   EMPTY_DRAFT, MACRO_FIELDS,
-  type MacroField, type OcrResult, type ProductDraft,
+  type DraftSetter, type MacroField, type OcrResult, type ProductDraft,
 } from '@/lib/nutricion/types';
 
 const str = (v: number | string | null | undefined) => (v == null ? '' : String(v));
@@ -32,7 +32,7 @@ export default function EscanearScreen() {
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
 
   const reviewing = ocr !== null;
-  const set = (k: keyof ProductDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const set: DraftSetter = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const flagged = (name: string) =>
     !!ocr?.unreadable_fields?.some((f) => f.toLowerCase().includes(name));
 
@@ -68,6 +68,7 @@ export default function EscanearScreen() {
     setModel(result.meta.model);
     setDerived(wasDerived);
     setDraft({
+      ...EMPTY_DRAFT,
       name: data.product_name ?? '',
       brand: data.brand ?? '',
       package_size_g: str(data.package_size_g),

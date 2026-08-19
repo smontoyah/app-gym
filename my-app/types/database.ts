@@ -81,8 +81,18 @@ export type CardioLog = {
  * Las macros son SIEMPRE por 100 g: es la única base que permite sumar
  * productos distintos y escalar por los gramos realmente consumidos.
  */
+/**
+ * Unidad con la que se ESCRIBE la cantidad. Los cálculos y lo que se guarda
+ * siguen siendo gramos: esto es solo la unidad de captura.
+ */
+export type IntakeUnit = 'g' | 'unidad';
+
 export type FoodProduct = {
   id: string;
+  /**
+   * Quién lo cargó, no quién lo puede ver: el catálogo es compartido y todos
+   * leen todos los productos. Solo el autor los edita o los borra.
+   */
   user_id: string;
   name: string;
   brand: string | null;
@@ -91,6 +101,16 @@ export type FoodProduct = {
   /** Literal impreso en la etiqueta: "1 cucharada (15 g)". */
   serving_label: string | null;
   servings_per_package: number | null;
+  /** Con qué unidad se abre el campo de cantidad en el diario. */
+  intake_unit: IntakeUnit;
+  /**
+   * Cuánto pesa UNA unidad: 1 huevo, 1 galleta, 1 arepa. No es
+   * `serving_size_g`: la porción de la etiqueta suele traer varias unidades
+   * ("5 galletas (32,5 g)"). Obligatorio si `intake_unit` es 'unidad'.
+   */
+  unit_weight_g: number | null;
+  /** Nombre de la unidad en singular: "huevo", "galleta". null → "unidad". */
+  unit_label: string | null;
   energy_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -112,6 +132,18 @@ export type FoodProduct = {
   verified: boolean;
   created_at: string;
   updated_at: string;
+};
+
+/**
+ * Fila de `food_product_usage`: cuántos registros usan un producto. Los ajenos
+ * se cuentan aparte porque la RLS no los deja ver desde el cliente, y son los
+ * que explican un borrado que Postgres rechaza sin que la app sepa por qué.
+ */
+export type FoodProductUsage = {
+  own_logs: number;
+  other_logs: number;
+  own_items: number;
+  other_items: number;
 };
 
 export type MealSlot = 'desayuno' | 'almuerzo' | 'cena' | 'snack';
@@ -206,6 +238,10 @@ export type NutritionLogMacros = {
   recipe_id: string | null;
   source_name: string;
   source_type: 'producto' | 'receta';
+  /** Unidad de presentación del producto; null en las recetas, que van en gramos. */
+  intake_unit: IntakeUnit | null;
+  unit_weight_g: number | null;
+  unit_label: string | null;
   energy_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -524,6 +560,9 @@ export type Database = {
           serving_size_g?: number | null;
           serving_label?: string | null;
           servings_per_package?: number | null;
+          intake_unit?: IntakeUnit;
+          unit_weight_g?: number | null;
+          unit_label?: string | null;
           energy_kcal?: number | null;
           protein_g?: number | null;
           carbs_g?: number | null;
@@ -550,6 +589,9 @@ export type Database = {
           serving_size_g?: number | null;
           serving_label?: string | null;
           servings_per_package?: number | null;
+          intake_unit?: IntakeUnit;
+          unit_weight_g?: number | null;
+          unit_label?: string | null;
           energy_kcal?: number | null;
           protein_g?: number | null;
           carbs_g?: number | null;
@@ -709,6 +751,10 @@ export type Database = {
       export_training_data: {
         Args: { p_from: string; p_to: string; p_tz?: string };
         Returns: ExportRow[];
+      };
+      food_product_usage: {
+        Args: { p_product_id: string };
+        Returns: FoodProductUsage[];
       };
     };
     Enums: {};

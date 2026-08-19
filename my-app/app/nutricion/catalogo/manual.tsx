@@ -8,7 +8,7 @@ import { ProductFields } from '@/components/nutricion/product-fields';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { capture, type Shot } from '@/lib/nutricion/scan';
 import { saveProduct } from '@/lib/nutricion/actions';
-import { EMPTY_DRAFT, type ProductDraft } from '@/lib/nutricion/types';
+import { EMPTY_DRAFT, type DraftSetter, type ProductDraft } from '@/lib/nutricion/types';
 
 export default function ManualScreen() {
   const { colors } = useTheme();
@@ -18,7 +18,7 @@ export default function ManualScreen() {
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
 
-  const set = (k: keyof ProductDraft) => (v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const set: DraftSetter = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
 
   const pickFront = async (from: 'camera' | 'library') => {
     const { shot, error } = await capture('front', from);

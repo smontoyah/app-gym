@@ -3,6 +3,8 @@
  * El modelo transcribe; los cálculos los hace la app (ver `toPer100g`).
  */
 
+import type { IntakeUnit } from '@/types/database';
+
 export type OcrMacros = {
   energy_kcal: number | null;
   energy_kj: number | null;
@@ -80,7 +82,7 @@ export const MACRO_LABELS: Record<MacroField, string> = {
   sodium_mg: 'Sodio (mg)',
 };
 
-/** Estado editable del formulario de revisión. Todo string: son inputs. */
+/** Estado editable del formulario de revisión. Casi todo string: son inputs. */
 export type ProductDraft = {
   name: string;
   brand: string;
@@ -88,7 +90,19 @@ export type ProductDraft = {
   serving_size_g: string;
   serving_label: string;
   servings_per_package: string;
+  /** El único campo que no es texto: se elige con dos botones, no se escribe. */
+  intake_unit: IntakeUnit;
+  /** Peso de UNA unidad. Obligatorio cuando se ingresa en unidades. */
+  unit_weight_g: string;
+  /** Nombre de la unidad en singular: "huevo", "galleta". */
+  unit_label: string;
 } & Record<MacroField, string>;
+
+/**
+ * Setter del borrador. Es genérico para que `intake_unit` no se pueda pisar con
+ * un string cualquiera: cada campo solo acepta su propio tipo.
+ */
+export type DraftSetter = <K extends keyof ProductDraft>(k: K) => (v: ProductDraft[K]) => void;
 
 /** Borrador vacío: punto de partida tanto del escaneo como de la carga manual. */
 export const EMPTY_DRAFT: ProductDraft = {
@@ -98,5 +112,8 @@ export const EMPTY_DRAFT: ProductDraft = {
   serving_size_g: '',
   serving_label: '',
   servings_per_package: '',
+  intake_unit: 'g',
+  unit_weight_g: '',
+  unit_label: '',
   ...(Object.fromEntries(MACRO_FIELDS.map((f) => [f, ''])) as Record<MacroField, string>),
 };

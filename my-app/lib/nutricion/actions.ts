@@ -1,7 +1,7 @@
 import { File } from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/lib/auth-helpers';
-import type { FoodProduct } from '@/types/database';
+import type { FoodProduct, FoodProductUsage } from '@/types/database';
 import { MACRO_FIELDS, type MacroField, type OcrResult, type ProductDraft } from './types';
 import type { Shot } from './scan';
 
@@ -31,8 +31,29 @@ export function draftToRow(draft: ProductDraft) {
     serving_size_g: parseNum(draft.serving_size_g),
     serving_label: draft.serving_label.trim() || null,
     servings_per_package: parseNum(draft.servings_per_package),
+    intake_unit: draft.intake_unit,
+    // Se guarda el peso aunque el producto quede en gramos: si mañana se
+    // vuelve a marcar "unidades", la equivalencia ya está y no hay que
+    // buscarla otra vez.
+    unit_weight_g: parseNum(draft.unit_weight_g),
+    unit_label: draft.unit_label.trim() || null,
     ...macros,
   };
+}
+
+/**
+ * Lo que no puede pasar de acá a la base. Es el mismo par de reglas que valida
+ * la tabla (nombre no vacío, unidades con equivalencia), dicho en castellano y
+ * antes de gastar el viaje: el mensaje de Postgres no le sirve a nadie.
+ */
+export function validateDraft(draft: ProductDraft): string | null {
+  if (!draft.name.trim()) return 'El nombre no puede quedar vacío.';
+
+  const unitWeight = parseNum(draft.unit_weight_g);
+  if (draft.intake_unit === 'unidad' && (unitWeight === null || unitWeight <= 0)) {
+    return 'Si el producto se ingresa en unidades, escribí cuánto pesa una: sin esa equivalencia no se puede convertir a gramos.';
+  }
+  return null;
 }
 
 /**
@@ -50,9 +71,10 @@ export async function saveProduct(params: {
   front: Shot | null;
 }): Promise<{ id: string | null; error: string | null; photoWarning: string | null }> {
   const userId = await getUserId();
-  const row = draftToRow(params.draft);
+  const invalid = validateDraft(params.draft);
+  if (invalid) return { id: null, error: invalid, photoWarning: null };
 
-  if (!row.name) return { id: null, error: 'El nombre no puede quedar vacío.', photoWarning: null };
+  const row = draftToRow(params.draft);
 
   const { data, error } = await supabase
     .from('food_products')
@@ -126,27 +148,48 @@ export function productToDraft(p: FoodProduct): ProductDraft {
     serving_size_g: str(p.serving_size_g),
     serving_label: p.serving_label ?? '',
     servings_per_package: str(p.servings_per_package),
+    intake_unit: p.intake_unit ?? 'g',
+    unit_weight_g: str(p.unit_weight_g),
+    unit_label: p.unit_label ?? '',
     ...(Object.fromEntries(
       MACRO_FIELDS.map((f) => [f, str(p[f])])
     ) as Record<MacroField, string>),
   };
 }
 
+/** Lo que ve el usuario cuando intenta escribir sobre un producto ajeno. */
+const NOT_AUTHOR =
+  'Este producto lo cargó otro usuario. Podés usarlo en tu diario y en tus recetas, pero solo quien lo creó puede modificarlo.';
+
 export async function updateProduct(
   id: string,
   draft: ProductDraft
 ): Promise<{ error: string | null }> {
+  const invalid = validateDraft(draft);
+  if (invalid) return { error: invalid };
+
   const row = draftToRow(draft);
-  if (!row.name) return { error: 'El nombre no puede quedar vacío.' };
 
   // verified queda en true: si el usuario editó a mano, revisó los valores.
-  const { error } = await supabase
+  //
+  // El `select` no es para leer el resultado: es para saber CUÁNTAS filas se
+  // tocaron. Sobre un producto ajeno la RLS no devuelve error, devuelve cero
+  // filas, y sin este conteo la app diría "guardado" sin haber guardado nada.
+  const { data, error } = await supabase
     .from('food_products')
     .update({ ...row, verified: true })
-    .eq('id', id);
-  return { error: error?.message ?? null };
+    .eq('id', id)
+    .select('id');
+
+  if (error) return { error: error.message };
+  return { error: data && data.length > 0 ? null : NOT_AUTHOR };
 }
 
+/**
+ * Todo el catálogo, de todos los usuarios: un producto se escanea una sola vez
+ * y queda disponible para los demás (la RLS abre el SELECT y acota la
+ * escritura al autor). Sin filtro por `user_id` a propósito.
+ */
 export async function fetchProducts(): Promise<{ products: FoodProduct[]; error: string | null }> {
   const { data, error } = await supabase
     .from('food_products')
@@ -178,19 +221,49 @@ export async function signPhotoUrls(paths: string[]): Promise<Record<string, str
 }
 
 export async function deleteProduct(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('food_products').delete().eq('id', id);
-  if (!error) return { error: null };
+  const { data, error } = await supabase
+    .from('food_products')
+    .delete()
+    .eq('id', id)
+    .select('id');
 
-  // 23503 = foreign_key_violation: la FK de nutrition_logs es ON DELETE
+  // Igual que en el update: cero filas y sin error significa que la RLS lo
+  // filtró porque el producto es de otro, no que se haya borrado.
+  if (!error) return { error: data && data.length > 0 ? null : NOT_AUTHOR };
+
+  // 23503 = foreign_key_violation: las FK hacia food_products son ON DELETE
   // RESTRICT a propósito, para que borrar un producto no vacíe el historial.
-  if (error.code === '23503') {
-    const { count } = await supabase
-      .from('nutrition_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('product_id', id);
-    return {
-      error: `Este producto está usado en ${count ?? 'varios'} registro(s) del diario o en alguna receta. Borrá esos registros primero.`,
-    };
-  }
+  if (error.code === '23503') return { error: await usageMessage(id) };
   return { error: error.message };
+}
+
+/**
+ * Explica por qué no se pudo borrar. Va por RPC y no por un `count` normal
+ * porque en un catálogo compartido quien bloquea el borrado puede ser el diario
+ * de OTRO usuario: filas que la RLS no deja ni contar desde el cliente. Un
+ * `count` acotado a lo propio informaría "0 registros" justo cuando Postgres
+ * acaba de negarse.
+ */
+async function usageMessage(id: string): Promise<string> {
+  const { data } = await supabase
+    .rpc('food_product_usage', { p_product_id: id })
+    .maybeSingle<FoodProductUsage>();
+
+  const propios = (data?.own_logs ?? 0) + (data?.own_items ?? 0);
+  const ajenos = (data?.other_logs ?? 0) + (data?.other_items ?? 0);
+
+  // Sin conteos no hay nada que explicar en detalle, pero el borrado igual
+  // falló: el genérico es la verdad mínima.
+  if (propios + ajenos === 0) {
+    return 'Este producto está usado en el diario o en alguna receta, así que no se puede borrar.';
+  }
+
+  const partes: string[] = [];
+  if (propios > 0) partes.push(`${propios} registro(s) tuyo(s)`);
+  if (ajenos > 0) partes.push(`${ajenos} de otros usuarios`);
+
+  const detalle = partes.join(' y ');
+  return propios > 0 && ajenos === 0
+    ? `Este producto está usado en ${detalle} del diario o de tus recetas. Borrá esos registros primero.`
+    : `Este producto está usado en ${detalle}. Los registros de otros usuarios no los podés borrar, así que este producto no se puede eliminar: editalo si tiene algo mal.`;
 }

@@ -7,6 +7,7 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/hooks/use-auth';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct } from '@/types/database';
 import { ProductFields } from '@/components/nutricion/product-fields';
@@ -14,11 +15,12 @@ import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-v
 import {
   fetchProduct, productToDraft, updateProduct, deleteProduct, signPhotoUrls,
 } from '@/lib/nutricion/actions';
-import type { ProductDraft } from '@/lib/nutricion/types';
+import type { DraftSetter, ProductDraft } from '@/lib/nutricion/types';
 
 export default function ProductoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
+  const { user } = useAuth();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   const [product, setProduct] = useState<FoodProduct | null>(null);
@@ -46,8 +48,7 @@ export default function ProductoScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const set = (k: keyof ProductDraft) => (v: string) =>
-    setDraft((d) => (d ? { ...d, [k]: v } : d));
+  const set: DraftSetter = (k) => (v) => setDraft((d) => (d ? { ...d, [k]: v } : d));
 
   const handleSave = async () => {
     if (!id || !draft) return;
@@ -77,6 +78,11 @@ export default function ProductoScreen() {
     return <ActivityIndicator style={s.loader} color={colors.accent} />;
   }
 
+  // El catálogo se comparte en lectura: los productos ajenos se abren igual,
+  // pero como ficha. La RLS ya rechaza la escritura; esto evita ofrecer botones
+  // que no van a hacer nada.
+  const mine = !!user && product.user_id === user.id;
+
   const photos = [
     { path: product.front_photo_path, label: 'Frente' },
     { path: product.label_photo_path, label: 'Tabla' },
@@ -88,9 +94,13 @@ export default function ProductoScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={s.back}>‹ Productos</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={confirmDelete}>
-          <Text style={s.delete}>Borrar</Text>
-        </TouchableOpacity>
+        {mine ? (
+          <TouchableOpacity onPress={confirmDelete}>
+            <Text style={s.delete}>Borrar</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={s.shared}>De otro usuario</Text>
+        )}
       </View>
 
       {photos.length > 0 && (
@@ -109,11 +119,19 @@ export default function ProductoScreen() {
         </View>
       )}
 
-      <ProductFields draft={draft} onChange={set} />
+      <ProductFields draft={draft} onChange={set} editable={mine} />
 
-      <TouchableOpacity style={[s.primary, saving && s.disabled]} onPress={handleSave} disabled={saving}>
-        <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar cambios'}</Text>
-      </TouchableOpacity>
+      {mine ? (
+        <TouchableOpacity style={[s.primary, saving && s.disabled]} onPress={handleSave} disabled={saving}>
+          <Text style={s.primaryText}>{saving ? 'Guardando…' : 'Guardar cambios'}</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={s.sharedNote}>
+          Este producto lo cargó otro usuario. Usalo en tu diario y en tus recetas como
+          cualquier otro; editarlo o borrarlo solo puede quien lo creó, porque los cambios
+          le tocarían el historial a todos los que ya lo registraron.
+        </Text>
+      )}
 
       {product.ocr_model && (
         <Text style={s.footnote}>
@@ -135,6 +153,16 @@ const createStyles = (c: AppColorScheme) =>
     topBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
     back: { color: c.accent, fontSize: 15 },
     delete: { color: c.danger, fontSize: 14 },
+    shared: { color: c.textMuted, fontSize: 12 },
+    sharedNote: {
+      color: c.textSecondary,
+      fontSize: 12,
+      lineHeight: 18,
+      backgroundColor: c.surfaceSecondary,
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 22,
+    },
     photos: { flexDirection: 'row', gap: 10, marginBottom: 6 },
     photoWrap: { flex: 1 },
     photo: { width: '100%', height: 150, borderRadius: 10, backgroundColor: c.surfaceSecondary },

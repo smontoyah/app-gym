@@ -12,9 +12,13 @@ type Props = {
   numeric?: boolean;
   placeholder?: string;
   suffix?: string;
+  /** false para los productos que cargó otro usuario: se ven, no se tocan. */
+  editable?: boolean;
 };
 
-export function Field({ label, value, onChange, flagged, numeric, placeholder, suffix }: Props) {
+export function Field({
+  label, value, onChange, flagged, numeric, placeholder, suffix, editable = true,
+}: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
 
@@ -24,11 +28,12 @@ export function Field({ label, value, onChange, flagged, numeric, placeholder, s
         <Text style={s.label}>{label}</Text>
         {flagged && <Text style={s.flag}>revisar</Text>}
       </View>
-      <View style={[s.inputWrap, flagged && s.inputFlagged]}>
+      <View style={[s.inputWrap, flagged && s.inputFlagged, !editable && s.inputReadOnly]}>
         <TextInput
           style={s.input}
           value={value}
           onChangeText={onChange}
+          editable={editable}
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
           keyboardType={numeric ? 'decimal-pad' : 'default'}
@@ -65,6 +70,8 @@ const createStyles = (c: AppColorScheme) =>
       paddingHorizontal: 12,
     },
     inputFlagged: { borderColor: c.warning, backgroundColor: c.warningBg },
+    // Sin borde y con el fondo hundido: se lee como dato, no como campo vacío.
+    inputReadOnly: { backgroundColor: c.surfaceSecondary, borderColor: 'transparent' },
     input: { flex: 1, color: c.text, fontSize: 15, paddingVertical: 10 },
     suffix: { color: c.textMuted, fontSize: 13, marginLeft: 6 },
   });

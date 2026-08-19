@@ -7,7 +7,14 @@ import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, MealSlot, RecipeNutrition } from '@/types/database';
 import { MEALS, MEAL_LABELS } from '@/lib/nutricion/diario';
-import { parseNum } from '@/lib/nutricion/actions';
+import { QuantityInput } from '@/components/nutricion/quantity-input';
+import {
+  convertQuantity, emptyQuantity, formatAmount, quantityToGrams, supportsUnits,
+  unitName, unitWeight, type Quantity,
+} from '@/lib/nutricion/unidades';
+
+/** Tope de `nutrition_logs.quantity_g` en la base. */
+const MAX_QUANTITY_G = 5000;
 
 export type Pick =
   | { kind: 'producto'; product: FoodProduct }
@@ -36,7 +43,8 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
   const [query, setQuery] = useState('');
   const [pick, setPick] = useState<Pick | null>(null);
   const [meal, setMeal] = useState<MealSlot>(defaultMeal);
-  const [grams, setGrams] = useState('');
+  /** Cantidad tal como se escribe: el texto y la unidad en la que está. */
+  const [qty, setQty] = useState<Quantity>({ value: '', unit: 'g' });
 
   /**
    * La hoja no se desmonta al cerrarse, así que sin este sync `meal` se queda
@@ -48,12 +56,22 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
     setMeal(defaultMeal);
     setQuery('');
     setPick(null);
-    setGrams('');
+    setQty({ value: '', unit: 'g' });
   }, [visible, defaultMeal]);
 
   const close = () => {
-    setQuery(''); setPick(null); setGrams('');
+    setQuery(''); setPick(null); setQty({ value: '', unit: 'g' });
     onClose();
+  };
+
+  /**
+   * Elegir qué se comió fija también con qué unidad se va a escribir cuánto:
+   * la que diga la maestra del producto. Las recetas no tienen unidad propia,
+   * se sirven en gramos.
+   */
+  const choose = (next: Pick) => {
+    setPick(next);
+    setQty(emptyQuantity(next.kind === 'producto' ? next.product : null));
   };
 
   const q = query.trim().toLowerCase();
@@ -61,19 +79,32 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
   const shownProducts = products.filter((p) => matches(p.name) || matches(p.brand ?? ''));
   const shownRecipes = recipes.filter((r) => matches(r.name));
 
+  /** El producto elegido, que es quien sabe la equivalencia unidad → gramos. */
+  const spec = pick?.kind === 'producto' ? pick.product : null;
+
   const confirm = () => {
-    const value = parseNum(grams);
-    if (!value || value <= 0) return Alert.alert('Cantidad', 'Escribí cuántos gramos comiste.');
     if (!pick) return;
-    onAdd({ pick, meal, quantityG: value });
+    const quantityG = quantityToGrams(qty, spec);
+    if (quantityG === null) return Alert.alert('Cantidad', 'Escribí cuánto comiste.');
+    // El mismo techo que tiene la columna en la base, avisado en castellano:
+    // en unidades es fácil pasarse de un tecleo (300 huevos son 15 kg).
+    if (quantityG > MAX_QUANTITY_G) {
+      return Alert.alert('Cantidad', `Son ${formatAmount(quantityG)} g de una sentada. Revisá la cantidad.`);
+    }
+    onAdd({ pick, meal, quantityG });
     close();
   };
 
-  // Atajo para no obligar a calcular mentalmente cuánto pesa una porción.
+  // Atajo para no obligar a calcular mentalmente cuánto pesa una porción. Se
+  // escribe en la unidad que esté activa: en un producto que va por unidades,
+  // la porción de la etiqueta se ve como "1", no como "50".
   const servingShortcut =
     pick?.kind === 'producto' && pick.product.serving_size_g
-      ? { grams: pick.product.serving_size_g, label: pick.product.serving_label ?? `1 porción` }
+      ? { grams: Number(pick.product.serving_size_g), label: pick.product.serving_label ?? `1 porción` }
       : null;
+
+  const applyServing = (grams: number) =>
+    setQty((q) => convertQuantity({ value: String(grams), unit: 'g' }, q.unit, spec));
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
@@ -98,7 +129,7 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
               <ScrollView style={s.searchList} keyboardShouldPersistTaps="handled">
                 {shownRecipes.length > 0 && <Text style={s.groupTitle}>Recetas</Text>}
                 {shownRecipes.map((r) => (
-                  <TouchableOpacity key={r.recipe_id} style={s.item} onPress={() => setPick({ kind: 'receta', recipe: r })}>
+                  <TouchableOpacity key={r.recipe_id} style={s.item} onPress={() => choose({ kind: 'receta', recipe: r })}>
                     <Text style={s.itemName}>{r.name}</Text>
                     <Text style={s.itemMeta}>
                       {r.energy_kcal ?? '—'} kcal en {r.total_g} g
@@ -108,10 +139,13 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
 
                 {shownProducts.length > 0 && <Text style={s.groupTitle}>Productos</Text>}
                 {shownProducts.map((p) => (
-                  <TouchableOpacity key={p.id} style={s.item} onPress={() => setPick({ kind: 'producto', product: p })}>
+                  <TouchableOpacity key={p.id} style={s.item} onPress={() => choose({ kind: 'producto', product: p })}>
                     <Text style={s.itemName}>{p.name}</Text>
                     <Text style={s.itemMeta}>
                       {p.brand ? `${p.brand} · ` : ''}{p.energy_kcal ?? '—'} kcal /100 g
+                      {supportsUnits(p)
+                        ? ` · 1 ${unitName(p, 1)} = ${formatAmount(unitWeight(p) ?? 0)} g`
+                        : ''}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -142,18 +176,10 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
                 ))}
               </View>
 
-              <Text style={s.fieldLabel}>Gramos consumidos</Text>
-              <TextInput
-                style={s.grams}
-                value={grams}
-                onChangeText={setGrams}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.placeholder}
-                autoFocus
-              />
+              <Text style={s.fieldLabel}>Cantidad</Text>
+              <QuantityInput spec={spec} quantity={qty} onChange={setQty} autoFocus />
               {servingShortcut && (
-                <TouchableOpacity onPress={() => setGrams(String(servingShortcut.grams))}>
+                <TouchableOpacity onPress={() => applyServing(servingShortcut.grams)}>
                   <Text style={s.shortcut}>Usar {servingShortcut.label}</Text>
                 </TouchableOpacity>
               )}
@@ -234,10 +260,6 @@ const createStyles = (c: AppColorScheme) =>
     mealOn: { backgroundColor: c.accent, borderColor: c.accent },
     mealText: { color: c.textSecondary, fontSize: 13, fontWeight: '600' },
     mealTextOn: { color: c.accentText },
-    grams: {
-      backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: 8,
-      paddingHorizontal: 12, paddingVertical: 12, color: c.text, fontSize: 20, fontWeight: '700',
-    },
     shortcut: { color: c.accent, fontSize: 13, marginTop: 8, fontWeight: '600' },
     hint: { color: c.textMuted, fontSize: 12, marginTop: 8, lineHeight: 17 },
     primary: {

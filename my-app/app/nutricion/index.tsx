@@ -13,6 +13,7 @@ import {
   fetchDay, addEntry, deleteEntry, sumTotals, type DayTotals,
 } from '@/lib/nutricion/diario';
 import { fetchProducts } from '@/lib/nutricion/actions';
+import { formatQuantity } from '@/lib/nutricion/unidades';
 import { fetchRecipes } from '@/lib/nutricion/recetas';
 
 export default function DiarioScreen() {
@@ -135,7 +136,9 @@ export default function DiarioScreen() {
                       <View style={s.entryInfo}>
                         <Text style={s.entryName} numberOfLines={1}>{e.source_name}</Text>
                         <Text style={s.entryMeta}>
-                          {e.quantity_g} g
+                          {/* La fila trae la unidad del producto: los huevos se
+                              leen "2 huevos · 100 g", el arroz "150 g". */}
+                          {formatQuantity(e.quantity_g, e)}
                           {e.source_type === 'receta' ? ' · receta' : ''}
                           {'  ·  P '}{e.protein_g ?? 0}{'  C '}{e.carbs_g ?? 0}{'  G '}{e.fat_g ?? 0}
                         </Text>
