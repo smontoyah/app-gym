@@ -265,6 +265,23 @@ export type NutritionGoals = {
   updated_at: string;
 };
 
+/**
+ * Un pesaje del usuario.
+ *
+ * La hora forma parte del dato: entre el peso en ayunas y el de la noche hay más
+ * de un kilo, así que dos pesajes del mismo día solo son comparables si se sabe
+ * a qué hora se tomó cada uno.
+ */
+export type BodyWeightLog = {
+  id: string;
+  user_id: string;
+  weight_kg: number;
+  /** Timestamp ISO del pesaje. Se muestra en la hora local del dispositivo. */
+  measured_at: string;
+  note: string | null;
+  created_at: string;
+};
+
 export type RoutineWithExercise = Routine & {
   exercises: Exercise;
 };
@@ -715,6 +732,23 @@ export type Database = {
           carbs_g?: number | null;
           fat_g?: number | null;
           fiber_g?: number | null;
+        };
+        Relationships: [];
+      };
+      body_weight_logs: {
+        Row: BodyWeightLog;
+        Insert: {
+          id?: string;
+          user_id: string;
+          weight_kg: number;
+          measured_at?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          weight_kg?: number;
+          measured_at?: string;
+          note?: string | null;
         };
         Relationships: [];
       };

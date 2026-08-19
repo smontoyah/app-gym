@@ -53,6 +53,13 @@ export default function NutricionLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="target" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="peso"
+        options={{
+          title: 'Peso',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="scalemass" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

@@ -26,6 +26,7 @@ const MAPPING = {
   'list.bullet': 'list',
   'book.fill': 'menu-book',
   'target': 'track-changes',
+  'scalemass': 'monitor-weight',
 } as IconMapping;
 
 /**
