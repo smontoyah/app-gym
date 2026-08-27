@@ -30,6 +30,12 @@ export async function fetchRoutinesAndExercises(dayOfWeek: number): Promise<{
   };
 }
 
+/**
+ * Crea un ejercicio en el catálogo. No existe la operación inversa a propósito:
+ * el catálogo es acumulativo y un ejercicio no se borra nunca, porque de él
+ * cuelga todo el historial de series. Quitar un ejercicio de un día se hace con
+ * `deleteRoutineEntry`, que toca la rutina y deja el historial en paz.
+ */
 export async function createExercise(
   name: string,
   muscleGroup: string
@@ -41,7 +47,16 @@ export async function createExercise(
     .from('exercises')
     .insert({ user_id: auth.userId, name: name.trim(), muscle_group: muscleGroup.trim() || 'General' });
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    // Como nada se borra, un duplicado por tipeo queda para siempre y parte el
+    // historial en dos. La base lo rechaza (unique por user_id + nombre en
+    // minúsculas); acá se traduce, porque «duplicate key value violates unique
+    // constraint "exercises_user_name_unique"» no le dice nada a nadie.
+    if (error.code === '23505') {
+      return { success: false, error: `Ya tenés un ejercicio llamado «${name.trim()}»` };
+    }
+    return { success: false, error: error.message };
+  }
   return { success: true, error: null };
 }
 

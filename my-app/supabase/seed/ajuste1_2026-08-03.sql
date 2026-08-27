@@ -4,16 +4,30 @@
 --  Usuario: smontoyah99@gmail.com = 345f2fa2-eedc-481d-ba93-4f186fab0094
 --  Días   : D1→Lun(1) D2→Mar(2) D3→Mié(3,descanso) D4→Jue(4) D5→Vie(5)
 --           D6→Sáb(6,desc. activo) D7→Dom(0,desc. activo)
+--
+--  Es idempotente y NO destructivo: se puede volver a correr sin perder nada.
+--  Lo único que reemplaza es `routines`, la rutina de la semana. El catálogo de
+--  ejercicios se hace por upsert y el historial de `workout_logs` no se toca.
+--  Este archivo es la plantilla de la próxima fase: ver «Cuando llegue una fase
+--  nueva» en supabase/README.md.
 -- =============================================================================
 
 begin;
 
--- 1) Limpieza total (orden respetando FKs)
-delete from public.workout_logs where user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094';
-delete from public.routines     where user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094';
-delete from public.exercises    where user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094';
+-- 1) Se reemplaza la rutina de la semana. El catálogo y el historial NO.
+--    `routines` es la prescripción de ESTA fase: entra una nueva, sale la
+--    anterior. `exercises` y `workout_logs` sobreviven a todas las fases, así
+--    que lo levantado en AJUSTE 1 se sigue pudiendo comparar contra AJUSTE 2.
+--    Ya no es una convención: desde `exercises_never_deleted` las FK son ON
+--    DELETE RESTRICT y Postgres rechaza el borrado aunque el seed lo intente.
+delete from public.routines where user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094';
 
--- 2) Catálogo de ejercicios (23 únicos)
+-- 2) Catálogo de ejercicios (los 23 de esta fase)
+--    Upsert, no delete-and-reinsert: los ejercicios de fases anteriores y los
+--    que el usuario creó a mano desde la app siguen ahí, con su historial y su
+--    id intactos. Si una fase repite un ejercicio, se le refresca el grupo
+--    muscular y se reusa la MISMA fila, que es lo que mantiene enganchados los
+--    workout_logs viejos.
 insert into public.exercises (user_id, name, muscle_group)
 select '345f2fa2-eedc-481d-ba93-4f186fab0094'::uuid, v.name, v.muscle_group
 from (values
@@ -40,7 +54,9 @@ from (values
   ('Rear delt con mancuernas en banco inclinado',               'Deltoide posterior'),
   ('Curl de bíceps con barra (supinación)',                     'Bíceps'),
   ('Extensión de columna a 15° en banco',                       'Lumbares')
-) as v(name, muscle_group);
+) as v(name, muscle_group)
+on conflict (user_id, lower(name)) do update
+  set muscle_group = excluded.muscle_group;
 
 -- 3) Rutina semanal (24 filas)
 insert into public.routines
@@ -82,8 +98,12 @@ from (values
 ) as v(day_of_week, sort_order, exercise_name, sets,
        target_reps, rest_seconds, cadence, superset_group, notes)
 join public.exercises e
-  on e.user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094'
- and e.name    = v.exercise_name;
+  on e.user_id     = '345f2fa2-eedc-481d-ba93-4f186fab0094'
+ -- Case-insensitive igual que el unique del catálogo: el upsert conserva el
+ -- nombre que ya estaba guardado, así que si esta fase lo escribe con otra caja
+ -- un `=` exacto no encontraría la fila y la línea de rutina se perdería sin
+ -- ruido (el bloque de verificación la cazaría, pero mejor no llegar ahí).
+ and lower(e.name) = lower(v.exercise_name);
 
 -- 4) Verificación (aborta la transacción si algo no cuadra)
 do $$
@@ -91,7 +111,10 @@ declare n_ex int; n_rt int;
 begin
   select count(*) into n_ex from public.exercises where user_id='345f2fa2-eedc-481d-ba93-4f186fab0094';
   select count(*) into n_rt from public.routines  where user_id='345f2fa2-eedc-481d-ba93-4f186fab0094';
-  if n_ex <> 23 then raise exception 'Ejercicios: esperaba 23, hay %', n_ex; end if;
+  -- El catálogo es acumulativo: 23 es el piso, no el número exacto. Exigir
+  -- igualdad haría fallar el seed en cuanto el usuario cree un ejercicio suyo.
+  if n_ex <  23 then raise exception 'Ejercicios: esperaba al menos 23, hay %', n_ex; end if;
+  -- La rutina sí se reemplaza entera, así que acá el número es exacto.
   if n_rt <> 24 then raise exception 'Rutinas: esperaba 24, hay %', n_rt; end if;
 end $$;
 

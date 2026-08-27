@@ -22,6 +22,7 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `nutrition_module` | Módulo de nutrición: `food_products` (catálogo, macros **por 100 g** + `ocr_raw` con la respuesta cruda del modelo), `nutrition_logs` (qué se comió y cuántos gramos), `ocr_usage` (cuota diaria de escaneos). Bucket privado `nutrition` con política por carpeta `{user_id}/…` |
 | `recipes_goals_and_macro_views` | `recipes` + `recipe_items` (preparados hechos de productos del catálogo), `nutrition_goals` (meta diaria, una fila por usuario). `nutrition_logs` pasa a aceptar producto **o** receta. Vistas `recipe_nutrition` y `nutrition_log_macros`, ambas `security_invoker`, que resuelven los macros ya escalados |
 | `ocr_usage_limit_rpc` | `bump_ocr_usage(p_user, p_limit)`: suma un escaneo al contador diario y devuelve el total, o `-1` si ya pasó el tope. Incremento y verificación en la misma sentencia |
+| `exercises_never_deleted` | El catálogo de ejercicios pasa a ser acumulativo: las FK desde `routines` y `workout_logs` pasan de CASCADE a **RESTRICT**, `exercises` se queda sin política de DELETE (y sin el privilegio) y gana un unique por `(user_id, lower(name))` para que los seeds hagan upsert en vez de borrar y resembrar |
 
 ### La cuota de escaneos
 
@@ -63,21 +64,43 @@ se derivan una de otra) van en el `description` de cada propiedad del
 
 ## `seed/`
 
-Un archivo por fase del entrenador. Cada uno **borra todo lo del usuario y
-vuelve a sembrar el plan completo**, así que es idempotente pero destructivo:
-se lleva por delante el historial de `workout_logs`.
+Un archivo por fase del entrenador. Cada uno **reemplaza la rutina de la semana
+y deja todo lo demás en pie**: es idempotente y no destructivo. `routines` es la
+prescripción de la fase vigente, así que entra una nueva y sale la anterior; el
+catálogo de `exercises` se siembra por upsert y `workout_logs` no se toca.
+
+Antes no era así —el seed borraba las tres tablas— y cada fase nueva estrenaba
+un historial vacío, que es justo lo que hace falta para saber si la fase
+anterior sirvió. La migración `exercises_never_deleted` cerró esa puerta desde
+la base: las FK son ON DELETE RESTRICT, así que un seed que intente borrar el
+catálogo ahora falla en vez de vaciar el historial en silencio.
 
 ### Cuando llegue una fase nueva (AJUSTE 2, 3…)
 
-1. Exportá primero el histórico desde la app: **Ajustes → Exportar datos → Todo**.
-   El seed borra los `workout_logs`, y ese CSV es la única copia.
-2. Copiá `ajuste1_2026-08-03.sql` a un archivo nuevo con la fecha de la fase.
-3. Actualizá el catálogo de ejercicios, las filas de rutina, `cardio_plan`
+1. Copiá `ajuste1_2026-08-03.sql` a un archivo nuevo con la fecha de la fase.
+2. Actualizá el catálogo de ejercicios, las filas de rutina, `cardio_plan`
    y la fila de `training_phases` (`name`, `started_on`, `rpe_target`,
    `rir_target`, `method`, `warmup`).
-4. Ajustá los `count` del bloque de verificación al final: aborta la
-   transacción si el número de filas insertadas no es el esperado.
-5. Aplicalo con el MCP de Supabase (`execute_sql`) o desde el SQL Editor.
+
+   En el catálogo, **agregá los ejercicios nuevos de la fase; no saques los de
+   la anterior**. El `on conflict … do update` reusa la fila que ya existe, y
+   ese id es del que cuelgan los `workout_logs` viejos. Un ejercicio que la fase
+   nueva no usa simplemente deja de aparecer en `routines`: sigue en el catálogo
+   con su historial, listo para cuando vuelva.
+   Dentro de esa lista los nombres tienen que ser distintos **ignorando
+   mayúsculas**. Si aparecen dos que solo difieren en la caja, Postgres corta con
+   `ON CONFLICT DO UPDATE command cannot affect row a second time`: no es un bug
+   del seed, es el unique avisando que estás sembrando el mismo ejercicio dos
+   veces.
+3. Ajustá los `count` del bloque de verificación al final. El de `routines` es
+   exacto (la rutina se reemplaza entera); el de `exercises` es un **piso**
+   (`>=`), porque el catálogo acumula fases anteriores y lo que el usuario haya
+   creado a mano desde la app.
+4. Aplicalo con el MCP de Supabase (`execute_sql`) o desde el SQL Editor.
+
+Ya no hace falta exportar el histórico antes de aplicar una fase: el seed no lo
+toca. Exportar desde **Ajustes → Exportar datos → Todo** sigue siendo buena idea
+como respaldo, pero dejó de ser el único ejemplar.
 
 El `user_id` va como literal en el seed. Para otro usuario, resolvelo con
 `select id from auth.users where email = '…'`.
