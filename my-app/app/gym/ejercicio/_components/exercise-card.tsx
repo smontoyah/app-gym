@@ -1,7 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/use-theme';
 import { labelWeight, type WeightUnit } from '@/lib/units';
+import { ExerciseGuideModal } from './exercise-guide-modal';
 import { SetRow, type SetField } from './set-row';
 import { WeightUnitToggle } from './weight-unit-toggle';
 import type { ExerciseWithSets, LoadSuggestion, SetInput } from '../_lib/types';
@@ -43,6 +45,12 @@ export const ExerciseCard = memo(function ExerciseCard({
 }: ExerciseCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  const { name, muscle_group, image_url, instructions } = exercise.exercises;
+  // Un ejercicio sin vincular al dataset —o vinculado a uno que el dataset no
+  // ilustra— sigue siendo un ejercicio normal: simplemente no abre la guía.
+  const hasGuide = image_url !== null || (instructions?.length ?? 0) > 0;
 
   const unsavedWithData = useMemo(
     () => exercise.sets_data.filter((st) => !st.saved && st.reps !== '' && st.weight !== ''),
@@ -53,17 +61,45 @@ export const ExerciseCard = memo(function ExerciseCard({
 
   return (
     <View style={[s.root, done && s.rootDone]}>
-      <View style={s.header}>
-        <View style={s.titleRow}>
-          {positionLabel && (
-            <View style={s.positionBadge}>
-              <Text style={s.positionText}>{positionLabel}</Text>
-            </View>
-          )}
-          <Text style={s.name}>{exercise.exercises.name}</Text>
+      {/* Todo el encabezado abre la guía, no un botón aparte: es el área que
+          uno ya mira para saber qué ejercicio toca, y con una mano ocupada
+          conviene que el blanco sea grande. */}
+      <TouchableOpacity
+        style={s.header}
+        onPress={() => setGuideOpen(true)}
+        disabled={!hasGuide}
+        activeOpacity={0.7}
+      >
+        {image_url && (
+          <View style={s.thumbFrame}>
+            {/* Sin animar en la lista: seis tarjetas animando a la vez no
+                aportan nada y calientan el teléfono en mitad de la sesión.
+                El movimiento se ve al abrir la guía. */}
+            <Image
+              source={image_url}
+              style={s.thumb}
+              contentFit="contain"
+              autoplay={false}
+              cachePolicy="memory-disk"
+              transition={0}
+            />
+          </View>
+        )}
+        <View style={s.headerText}>
+          <View style={s.titleRow}>
+            {positionLabel && (
+              <View style={s.positionBadge}>
+                <Text style={s.positionText}>{positionLabel}</Text>
+              </View>
+            )}
+            <Text style={s.name}>{name}</Text>
+          </View>
+          <Text style={s.muscle}>
+            {muscle_group}
+            {hasGuide && <Text style={s.guideLink}>  ·  cómo se hace</Text>}
+          </Text>
         </View>
-        <Text style={s.muscle}>{exercise.exercises.muscle_group}</Text>
-      </View>
+      </TouchableOpacity>
 
       {/* Prescripción del entrenador, tal cual el PDF */}
       <View style={s.chips}>
@@ -135,6 +171,19 @@ export const ExerciseCard = memo(function ExerciseCard({
           <Text style={s.saveAllText}>Guardar todas ({unsavedWithData.length})</Text>
         </TouchableOpacity>
       )}
+
+      {/* Montado sólo cuando se abre: si no, cada día de rutina cargaría media
+          docena de modales invisibles a la espera de un toque que casi nunca
+          llega. */}
+      {guideOpen && (
+        <ExerciseGuideModal
+          visible
+          onClose={() => setGuideOpen(false)}
+          name={name}
+          imageUrl={image_url}
+          instructions={instructions}
+        />
+      )}
     </View>
   );
 });
@@ -143,7 +192,13 @@ const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
     root: { gap: 2 },
     rootDone: { opacity: 0.55 },
-    header: { marginBottom: 8 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+    // Blanco fijo y no `c.surface`: la ilustración viene dibujada sobre blanco
+    // opaco, así que en tema oscuro cualquier otro color deja un marco visible.
+    thumbFrame: { backgroundColor: '#ffffff', borderRadius: 8, padding: 2 },
+    thumb: { width: 44, height: 44 },
+    headerText: { flex: 1 },
+    guideLink: { color: c.textSecondary, fontWeight: '600' },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     positionBadge: {
       backgroundColor: c.warning,

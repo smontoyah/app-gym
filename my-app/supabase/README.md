@@ -23,6 +23,7 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `recipes_goals_and_macro_views` | `recipes` + `recipe_items` (preparados hechos de productos del catálogo), `nutrition_goals` (meta diaria, una fila por usuario). `nutrition_logs` pasa a aceptar producto **o** receta. Vistas `recipe_nutrition` y `nutrition_log_macros`, ambas `security_invoker`, que resuelven los macros ya escalados |
 | `ocr_usage_limit_rpc` | `bump_ocr_usage(p_user, p_limit)`: suma un escaneo al contador diario y devuelve el total, o `-1` si ya pasó el tope. Incremento y verificación en la misma sentencia |
 | `exercises_never_deleted` | El catálogo de ejercicios pasa a ser acumulativo: las FK desde `routines` y `workout_logs` pasan de CASCADE a **RESTRICT**, `exercises` se queda sin política de DELETE (y sin el privilegio) y gana un unique por `(user_id, lower(name))` para que los seeds hagan upsert en vez de borrar y resembrar |
+| `exercise_guide` | `exercises.dataset_id` (vínculo con el catálogo de referencia) e `exercises.instructions` (pasos en español). Bucket **público** `exercises` para las ilustraciones animadas. Unifica `Femorales` → `Isquiotibiales` |
 
 ### La cuota de escaneos
 
@@ -35,6 +36,66 @@ leen el mismo valor y ambas pasan el tope.
 La tabla `ocr_usage` no tiene política de escritura a propósito: solo la escribe
 la Edge Function con `service_role`. Si el cliente pudiera tocar su contador, el
 límite no limitaría nada.
+
+### La guía de cada ejercicio
+
+Cada fila de `exercises` puede apuntar, por `dataset_id`, a un movimiento del
+[exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset): 1.324
+ejercicios con animación, taxonomía y pasos en diez idiomas. De ahí salen la
+ilustración animada y los pasos en español que la app muestra al tocar el
+encabezado de un ejercicio.
+
+Los **nombres no se tocan**: siguen siendo los del PDF del entrenador, que son
+los que uno reconoce en el gimnasio y los que él usa cuando manda la fase
+siguiente. El dataset entra por debajo como referencia. Lo que sí estandariza es
+el vínculo: dos nombres distintos del mismo movimiento apuntan al mismo
+`dataset_id` y por lo tanto son el mismo ejercicio.
+
+Los pasos se **copian** a `exercises.instructions` en vez de referenciarse. El
+dataset entero son 17 MB por las diez traducciones que no se usan; copiados
+viajan en la misma consulta que la pantalla del día ya hacía.
+
+**Para vincular un ejercicio nuevo:**
+
+1. Buscalo en el navegador del dataset (abrí su `index.html`, tiene búsqueda por
+   nombre, equipo y músculo) y copiá el id de 4 dígitos.
+2. Agregá la línea a `scripts/ejercicios-dataset.mjs`, con la clave igual al
+   nombre exacto en `exercises`.
+3. Corré el script, que convierte la animación a WebP, la sube y actualiza la
+   fila:
+
+   ```bash
+   APP_EMAIL=… APP_PASSWORD='…' node scripts/vincular-ejercicios.mjs
+   ```
+
+   Necesita `ffmpeg`. Es idempotente, así que vuelve a correrse sin costo: sólo
+   trabaja sobre lo que cambió. Con `--dry-run` no toca nada y lista lo que
+   haría, incluidos los ejercicios que quedaron sin vincular.
+
+Un ejercicio sin `dataset_id` no es un error: sale en la app como salía antes,
+sin miniatura y sin guía.
+
+**La media es © Gym visual** (gymvisual.com) y se usa a 180×180 con la
+atribución a la vista en el modal, que es lo que pide su NOTICE. Por eso los
+archivos **no se versionan en este repo, que es público**: el script los
+reconstruye desde el dataset local. Si algún día la app sale de uso personal,
+hay que sacar licencia propia con Gym visual.
+
+### Los grupos musculares
+
+La lista canónica vive en `lib/muscle-groups.ts` y es la que alimenta el
+desplegable de Rutinas. **Los seeds tienen que escribir esos mismos nombres.**
+
+Estaba duplicada y divergiendo: los seeds decían «Isquiotibiales», «Glúteo»,
+«Pantorrilla», «Core» y el desplegable ofrecía «Femorales», «Glúteos»,
+«Pantorrillas», «Abdominales». El balance por grupo de Estadísticas agrupa por
+el texto, así que cada ejercicio creado a mano abría una barra propia en vez de
+sumarse a la de sus compañeros de músculo. Ya había pasado con «Peso muerto»,
+que `exercise_guide` reasignó.
+
+La base no tiene constraint contra esa lista a propósito: una fase nueva puede
+traer un grupo que todavía no esté, y que el seed falle por eso sería peor que
+tener un grupo suelto.
 
 ### El peso cocido de las recetas
 
@@ -92,11 +153,17 @@ catálogo ahora falla en vez de vaciar el historial en silencio.
    `ON CONFLICT DO UPDATE command cannot affect row a second time`: no es un bug
    del seed, es el unique avisando que estás sembrando el mismo ejercicio dos
    veces.
+
+   El grupo muscular tiene que salir de `lib/muscle-groups.ts` (ver «Los grupos
+   musculares»); un nombre nuevo para un músculo que ya está parte su barra en
+   el balance de Estadísticas.
 3. Ajustá los `count` del bloque de verificación al final. El de `routines` es
    exacto (la rutina se reemplaza entera); el de `exercises` es un **piso**
    (`>=`), porque el catálogo acumula fases anteriores y lo que el usuario haya
    creado a mano desde la app.
 4. Aplicalo con el MCP de Supabase (`execute_sql`) o desde el SQL Editor.
+5. Vinculá los ejercicios nuevos al dataset (ver «La guía de cada ejercicio»), o
+   van a salir sin ilustración ni pasos.
 
 Ya no hace falta exportar el histórico antes de aplicar una fase: el seed no lo
 toca. Exportar desde **Ajustes → Exportar datos → Todo** sigue siendo buena idea

@@ -1,24 +1,8 @@
 import { useState, useMemo, memo } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { MUSCLE_GROUPS } from '@/lib/muscle-groups';
 import type { AppColorScheme } from '@/constants/theme';
-
-const MUSCLE_GROUPS = [
-  'Pecho',
-  'Espalda',
-  'Hombros',
-  'Bíceps',
-  'Tríceps',
-  'Antebrazos',
-  'Cuádriceps',
-  'Femorales',
-  'Glúteos',
-  'Pantorrillas',
-  'Aductores',
-  'Abdominales',
-  'Oblicuos',
-  'Trapecio',
-];
 
 type ExerciseFormProps = {
   visible: boolean;

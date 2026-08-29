@@ -3,8 +3,19 @@ export type Exercise = {
   user_id: string;
   name: string;
   muscle_group: string;
-  /** Ilustración del movimiento (la del PDF del entrenador). */
+  /**
+   * Ilustración animada del movimiento (WebP 180×180 en el bucket público
+   * `exercises`). Null mientras el ejercicio no esté vinculado al dataset.
+   */
   image_url: string | null;
+  /**
+   * Id del movimiento en el dataset de referencia, 4 dígitos: '0599'. Es el
+   * vínculo que hace que dos nombres distintos del mismo ejercicio sean el
+   * mismo ejercicio, y con el que se regeneran ilustración y pasos.
+   */
+  dataset_id: string | null;
+  /** Pasos de ejecución en español. Copiados del dataset, no referenciados. */
+  instructions: string[] | null;
   created_at: string;
 };
 
@@ -457,6 +468,8 @@ export type Database = {
           name: string;
           muscle_group: string;
           image_url?: string | null;
+          dataset_id?: string | null;
+          instructions?: string[] | null;
           created_at?: string;
         };
         Update: {
@@ -465,6 +478,8 @@ export type Database = {
           name?: string;
           muscle_group?: string;
           image_url?: string | null;
+          dataset_id?: string | null;
+          instructions?: string[] | null;
           created_at?: string;
         };
         Relationships: [];
