@@ -44,3 +44,14 @@ app-example
 
 # Supabase CLI
 supabase/.temp/
+
+# Salidas del MCP de Playwright (logs, snapshots del DOM, screenshots)
+.playwright-mcp/
+
+# Capturas de trabajo sueltas en la raíz.
+# Solo la raíz: los assets reales viven en assets/images/ y deben versionarse.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
