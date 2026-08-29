@@ -1,0 +1,241 @@
+{
+    "meta": {
+        "userName": "Sebasti\u00e1n Montoya",
+        "rangeLabel": "Registro del 18 al 28 de agosto de 2026",
+        "generatedOn": "29 ago 2026",
+        "totalLogs": 101,
+        "daysWithData": 10
+    },
+    "goal": {
+        "kcal": 2000,
+        "protein": 160,
+        "carbs": 190,
+        "fat": 65
+    },
+    "averages": {
+        "kcal": 1546,
+        "protein": 137,
+        "carbs": 134,
+        "fat": 52,
+        "fiber": 13
+    },
+    "days": [
+        {
+            "date": "2026-08-18",
+            "dayNum": "18",
+            "dow": "mar",
+            "kcal": 1672
+        },
+        {
+            "date": "2026-08-19",
+            "dayNum": "19",
+            "dow": "mi\u00e9",
+            "kcal": 1580
+        },
+        {
+            "date": "2026-08-20",
+            "dayNum": "20",
+            "dow": "jue",
+            "kcal": 1214
+        },
+        {
+            "date": "2026-08-21",
+            "dayNum": "21",
+            "dow": "vie",
+            "kcal": null
+        },
+        {
+            "date": "2026-08-22",
+            "dayNum": "22",
+            "dow": "s\u00e1b",
+            "kcal": 1669
+        },
+        {
+            "date": "2026-08-23",
+            "dayNum": "23",
+            "dow": "dom",
+            "kcal": 1414
+        },
+        {
+            "date": "2026-08-24",
+            "dayNum": "24",
+            "dow": "lun",
+            "kcal": 1432
+        },
+        {
+            "date": "2026-08-25",
+            "dayNum": "25",
+            "dow": "mar",
+            "kcal": 2038
+        },
+        {
+            "date": "2026-08-26",
+            "dayNum": "26",
+            "dow": "mi\u00e9",
+            "kcal": 1413
+        },
+        {
+            "date": "2026-08-27",
+            "dayNum": "27",
+            "dow": "jue",
+            "kcal": 484,
+            "partial": true
+        },
+        {
+            "date": "2026-08-28",
+            "dayNum": "28",
+            "dow": "vie",
+            "kcal": 1479
+        }
+    ],
+    "kpis": [
+        {
+            "label": "Promedio diario",
+            "value": "1.546",
+            "unit": "kcal",
+            "note": "9 d\u00edas completos"
+        },
+        {
+            "label": "Prote\u00edna",
+            "value": "137",
+            "unit": "g",
+            "note": "1,75 g/kg de peso"
+        },
+        {
+            "label": "Adherencia a meta",
+            "value": "77",
+            "unit": "%",
+            "note": "\u2212454 kcal/d\u00eda"
+        },
+        {
+            "label": "Peso",
+            "value": "78,5",
+            "unit": "kg",
+            "note": "estable (77,7\u201378,5)"
+        }
+    ],
+    "meals": [
+        {
+            "name": "Almuerzo",
+            "kcalPerDay": 596,
+            "proteinPerDay": 50
+        },
+        {
+            "name": "Cena",
+            "kcalPerDay": 406,
+            "proteinPerDay": 42
+        },
+        {
+            "name": "Desayuno",
+            "kcalPerDay": 345,
+            "proteinPerDay": 23
+        },
+        {
+            "name": "Snack",
+            "kcalPerDay": 259,
+            "proteinPerDay": 27
+        }
+    ],
+    "foods": [
+        {
+            "name": "Pechuga de pollo (cruda)",
+            "kcal": 2417,
+            "days": 7
+        },
+        {
+            "name": "Huevo entero",
+            "kcal": 2360,
+            "days": 10
+        },
+        {
+            "name": "Carne de res 90/10 (cruda)",
+            "kcal": 1552,
+            "days": 4
+        },
+        {
+            "name": "Salt\u00edn Noel Tradicional",
+            "kcal": 1170,
+            "days": 10
+        },
+        {
+            "name": "ISO100 Vainilla (Dymatize)",
+            "kcal": 928,
+            "days": 7
+        },
+        {
+            "name": "Spaghetti (Doria)",
+            "kcal": 752,
+            "days": 3
+        },
+        {
+            "name": "Banano",
+            "kcal": 668,
+            "days": 7
+        },
+        {
+            "name": "Tortillas de harina",
+            "kcal": 642,
+            "days": 3
+        }
+    ],
+    "weights": [
+        {
+            "dayNum": "19",
+            "kg": 78.2
+        },
+        {
+            "dayNum": "20",
+            "kg": 77.9
+        },
+        {
+            "dayNum": "22",
+            "kg": 78.2
+        },
+        {
+            "dayNum": "23",
+            "kg": 78.2
+        },
+        {
+            "dayNum": "24",
+            "kg": 77.7
+        },
+        {
+            "dayNum": "25",
+            "kg": 77.7
+        },
+        {
+            "dayNum": "26",
+            "kg": 78.2
+        },
+        {
+            "dayNum": "27",
+            "kg": 77.9
+        },
+        {
+            "dayNum": "28",
+            "kg": 78.5
+        },
+        {
+            "dayNum": "29",
+            "kg": 78.5
+        }
+    ],
+    "flag": {
+        "title": "El peso no cuadra con las calor\u00edas registradas.",
+        "body": "A 78 kg y entrenando, 1.546 kcal reales ser\u00edan un d\u00e9ficit aproximado de 800\u2013900 kcal/d\u00eda: en estos 10 d\u00edas el peso deber\u00eda haber bajado cerca de 1\u20131,5 kg. Se mantuvo plano. Lo m\u00e1s probable es subregistro \u2014aceite de cocci\u00f3n, bebidas, salsas, porciones estimadas por debajo\u2014 y que la ingesta real est\u00e9 cerca del mantenimiento. Conviene cerrar ese margen de medici\u00f3n antes de ajustar el plan."
+    },
+    "notes": [
+        "<b>El hueco es casi todo carbohidrato:</b> \u221256 g/d\u00eda contra meta, frente a \u221223 g de prote\u00edna y \u221213 g de grasa.",
+        "<b>La prote\u00edna es lo mejor sostenido:</b> 86% de la meta, con buena consistencia d\u00eda a d\u00eda.",
+        "<b>El desayuno es el punto d\u00e9bil:</b> 23 g de prote\u00edna en promedio, la mitad de lo que aporta el almuerzo.",
+        "<b>La cena solo se registr\u00f3 8 de 10 d\u00edas</b> \u2014 parte del subregistro puede estar ah\u00ed."
+    ],
+    "captions": {
+        "daily": "Rango 1.214\u20132.038 kcal \u00b7 desviaci\u00f3n est\u00e1ndar 234 kcal. La barra rayada (jue 27) tiene solo 3 alimentos registrados y queda fuera de todos los promedios; el vie 21 no tiene registro.",
+        "macros": "Meta vigente: 2.000 kcal \u00b7 160 g P \u00b7 190 g C \u00b7 65 g G. Fibra promedio 13 g/d\u00eda (sin meta configurada; referencia habitual 25\u201330 g).",
+        "weight": "10 mediciones, 19\u201329 ago: de 78,2 a 78,5 kg. Variaci\u00f3n total 0,8 kg, sin tendencia.",
+        "meals": "Promedio por d\u00eda registrado. No todas las comidas se registraron a diario (almuerzo 9 d, cena 8 d, desayuno 10 d, snack 9 d).",
+        "foods": "Total de kcal aportadas en el periodo y d\u00edas en que aparece.",
+        "method": "Datos exportados del diario de la app el 29 de agosto de 2026. Macros calculados sobre los valores por 100 g de cada producto (etiqueta o USDA) multiplicados por la cantidad registrada. Prote\u00ednas pesadas en crudo; arroz, pasta, maduro y leguminosas en cocido. Los promedios excluyen el jue 27 (3 \u00edtems) y el vie 21 (sin registro)."
+    }
+}

@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { ExerciseStatsRow, TrainingSummaryRow } from '@/types/database';
-import type { DateRange } from './ranges';
+import type { DateRange } from '@/lib/date-ranges';
 import { EMPTY_SUMMARY, type ExerciseStat, type TrainingSummary } from './types';
 
 /**

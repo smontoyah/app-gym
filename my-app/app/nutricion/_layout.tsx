@@ -33,6 +33,17 @@ export default function NutricionLayout() {
         }}
       />
       <Tabs.Screen
+        name="estadisticas"
+        options={{
+          title: 'Estadísticas',
+          // Con seis pestañas, «Estadísticas» no cabe y se corta: la barra le da
+          // unos 60 dp a cada una. La etiqueta corta va solo en la pestaña; el
+          // encabezado de la pantalla sigue diciendo el nombre completo.
+          tabBarLabel: 'Resumen',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="catalogo"
         options={{
           title: 'Productos',

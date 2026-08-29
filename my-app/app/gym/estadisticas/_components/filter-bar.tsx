@@ -1,8 +1,8 @@
 import { memo, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
-import { Section } from './section';
-import { ChipRow, type ChipOption } from './chip-row';
+import { Section } from '@/components/stats/section';
+import { ChipRow, type ChipOption } from '@/components/stats/chip-row';
 import { SORTS, type SortKey } from '../_lib/analysis';
 import type { AppColorScheme } from '@/constants/theme';
 

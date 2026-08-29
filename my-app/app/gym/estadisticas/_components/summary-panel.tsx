@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDuration } from '@/lib/date';
-import { Section } from './section';
+import { Section } from '@/components/stats/section';
 import {
   absDelta,
   countDelta,

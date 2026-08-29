@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
-import { Section } from './section';
+import { Section } from '@/components/stats/section';
 import { formatVolume, plural } from '../_lib/format';
 import type { MuscleStat } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';

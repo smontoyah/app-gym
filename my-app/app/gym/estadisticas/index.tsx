@@ -11,7 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@/hooks/use-theme';
 import { fetchStats } from './_lib/actions';
-import { buildRange, hasComparison, RANGE_KEYS, type RangeKey } from './_lib/ranges';
+import { buildRange, hasComparison, RANGE_KEYS, type RangeKey } from '@/lib/date-ranges';
 import {
   filterStats,
   muscleGroups,
@@ -20,7 +20,7 @@ import {
   type SortKey,
 } from './_lib/analysis';
 import { EMPTY_SUMMARY, type ExerciseStat, type TrainingSummary } from './_lib/types';
-import { ChipRow, type ChipOption } from './_components/chip-row';
+import { ChipRow, type ChipOption } from '@/components/stats/chip-row';
 import { SummaryPanel } from './_components/summary-panel';
 import { DayChart } from './_components/day-chart';
 import { RecordsList } from './_components/records-list';

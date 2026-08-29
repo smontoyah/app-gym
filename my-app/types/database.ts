@@ -361,6 +361,51 @@ export type TrainingSummaryRow = {
 };
 
 /** Fila devuelta por la función `previous_sets`. */
+/**
+ * Fila devuelta por `nutrition_summary` para el rango pedido.
+ *
+ * Los promedios salen de los días COMPLETOS: un día con tres alimentos sueltos
+ * es un registro abandonado y, si promediara, hundiría la media varios cientos
+ * de kcal. Ese día igual viaja en `by_day` marcado, para poder dibujarlo.
+ */
+export type NutritionSummaryRow = {
+  days_logged: number;
+  days_complete: number;
+  days_partial: number;
+  total_logs: number;
+  /** Primer y último día CON registro dentro del rango; null si no hay ninguno. */
+  first_day: string | null;
+  last_day: string | null;
+  avg_kcal: number | null;
+  avg_protein: number | null;
+  avg_carbs: number | null;
+  avg_fat: number | null;
+  avg_fiber: number | null;
+  min_kcal: number | null;
+  max_kcal: number | null;
+  /** null con un solo día completo: no hay dispersión que medir. */
+  sd_kcal: number | null;
+  /** Mismos promedios del período anterior de igual longitud. */
+  prev_days: number;
+  prev_avg_kcal: number | null;
+  prev_avg_protein: number | null;
+  by_day: {
+    date: string;
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    items: number;
+    partial: boolean;
+  }[];
+  /** Promedio por día EN QUE SE REGISTRÓ esa comida; `days` es el divisor. */
+  by_meal: { meal: MealSlot; days: number; kcalPerDay: number; proteinPerDay: number }[];
+  top_foods: { name: string; brand: string | null; kcal: number; grams: number; days: number }[];
+  /** Productos del rango con alguna macro en null: el total queda por debajo. */
+  incomplete: string[];
+};
+
 export type PreviousSetRow = {
   exercise_id: string;
   workout_date: string;
@@ -777,6 +822,16 @@ export type Database = {
       training_summary: {
         Args: { p_from?: string; p_to?: string };
         Returns: TrainingSummaryRow[];
+      };
+      nutrition_summary: {
+        Args: {
+          p_from?: string;
+          p_to?: string;
+          /** Días con este número de ítems o menos quedan fuera de los promedios. */
+          p_partial_max?: number;
+          p_foods?: number;
+        };
+        Returns: NutritionSummaryRow[];
       };
       previous_sets: {
         Args: { p_before: string; p_exercise_ids: string[] };

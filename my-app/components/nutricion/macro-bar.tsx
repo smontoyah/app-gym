@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { thousands } from '@/lib/stats-format';
 import type { AppColorScheme } from '@/constants/theme';
 
 type Props = {
@@ -10,7 +11,14 @@ type Props = {
   unit: string;
 };
 
-const round = (n: number) => (n >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
+/**
+ * Redondeo y separador de miles. Sin el separador, la misma cifra se leía
+ * «1.546» en el resumen de Estadísticas y «1546» acá abajo, en la misma
+ * pantalla. Se arma a mano y no con `toLocaleString`: Hermes puede venir sin
+ * datos de `Intl` y ahí el separador se cae en silencio.
+ */
+const round = (n: number) =>
+  n >= 1000 ? thousands(n) : n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 
 export function MacroBar({ label, consumed, goal, unit }: Props) {
   const { colors } = useTheme();

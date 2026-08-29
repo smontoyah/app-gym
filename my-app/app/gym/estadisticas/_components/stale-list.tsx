@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
-import { Section } from './section';
+import { Section } from '@/components/stats/section';
 import { STALE_DAYS, type StaleEntry } from '../_lib/analysis';
 import type { AppColorScheme } from '@/constants/theme';
 
