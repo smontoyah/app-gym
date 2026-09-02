@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { currentUserId } from '@/lib/auth-helpers';
 import type {
-  MealSlot, NutritionGoals, NutritionLogMacros,
+  FoodState, MealSlot, NutritionGoals, NutritionLogMacros,
 } from '@/types/database';
 
 export const MEALS: MealSlot[] = ['desayuno', 'almuerzo', 'cena', 'snack'];
@@ -35,7 +35,10 @@ export const GOAL_UNITS: Record<GoalField, string> = {
 
 export type DayTotals = Record<GoalField, number>;
 
-const ZERO: DayTotals = { energy_kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
+/** Un día sin nada registrado. Congelado: siempre se copia antes de acumular. */
+export const ZERO_TOTALS: Readonly<DayTotals> = Object.freeze({
+  energy_kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0,
+});
 
 export function sumTotals(entries: NutritionLogMacros[]): DayTotals {
   return entries.reduce<DayTotals>(
@@ -45,8 +48,33 @@ export function sumTotals(entries: NutritionLogMacros[]): DayTotals {
       for (const f of GOAL_FIELDS) acc[f] += Number(e[f] ?? 0);
       return acc;
     },
-    { ...ZERO }
+    { ...ZERO_TOTALS }
   );
+}
+
+/**
+ * Lo que aportarían `quantityG` de algo del catálogo, sin guardar nada.
+ *
+ * La base va explícita porque las dos fuentes del diario no la comparten: un
+ * producto guarda sus macros por 100 g y una receta las guarda para todo el
+ * preparado (`total_g`). Es la misma cuenta que hace la vista
+ * `nutrition_log_macros` en la base, hecha acá para poder mostrarla antes de
+ * registrar el renglón.
+ */
+export function macrosFor(
+  source: Partial<Record<GoalField, number | string | null>>,
+  baseG: number | string,
+  quantityG: number
+): DayTotals {
+  const base = Number(baseG);
+  // Una receta vacía llega con total_g en 0: dividir ahí daría Infinity y la
+  // simulación mostraría barras desbordadas en vez de un aporte de cero.
+  if (!Number.isFinite(base) || base <= 0) return { ...ZERO_TOTALS };
+
+  const factor = quantityG / base;
+  const out = { ...ZERO_TOTALS };
+  for (const f of GOAL_FIELDS) out[f] = Number(source[f] ?? 0) * factor;
+  return out;
 }
 
 export async function fetchDay(dateStr: string): Promise<{
@@ -67,7 +95,7 @@ export async function fetchDay(dateStr: string): Promise<{
   ]);
 
   if (logsRes.error) {
-    return { entries: [], totals: { ...ZERO }, goals: null, error: logsRes.error.message };
+    return { entries: [], totals: { ...ZERO_TOTALS }, goals: null, error: logsRes.error.message };
   }
 
   const entries = (logsRes.data ?? []) as NutritionLogMacros[];
@@ -84,7 +112,10 @@ export async function addEntry(params: {
   recipeId?: string;
   loggedOn: string;
   meal: MealSlot;
+  /** Siempre en la forma base del producto: la conversión ya se hizo. */
   quantityG: number;
+  /** En qué forma se pesó. Solo para poder mostrar después lo que dijo la balanza. */
+  loggedState?: FoodState | null;
   note?: string;
 }): Promise<{ error: string | null }> {
   const auth = await currentUserId();
@@ -97,6 +128,7 @@ export async function addEntry(params: {
     logged_on: params.loggedOn,
     meal: params.meal,
     quantity_g: params.quantityG,
+    logged_state: params.loggedState ?? null,
     note: params.note?.trim() || null,
   });
   return { error: error?.message ?? null };

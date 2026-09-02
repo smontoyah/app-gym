@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal, View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { AppColorScheme } from '@/constants/theme';
-import type { FoodProduct, MealSlot, RecipeNutrition } from '@/types/database';
-import { MEALS, MEAL_LABELS } from '@/lib/nutricion/diario';
+import type { FoodProduct, FoodState, MealSlot, NutritionGoals, RecipeNutrition } from '@/types/database';
+import { MEALS, MEAL_LABELS, macrosFor, ZERO_TOTALS, type DayTotals } from '@/lib/nutricion/diario';
 import { QuantityInput } from '@/components/nutricion/quantity-input';
+import { ImpactPreview } from '@/components/nutricion/impact-preview';
 import {
   convertQuantity, emptyQuantity, formatAmount, quantityToGrams, supportsUnits,
   unitName, unitWeight, type Quantity,
 } from '@/lib/nutricion/unidades';
+import {
+  baseState, convertState, describeQuantity, FOOD_STATES, fromBaseGrams, stateLabel,
+  stateRatio, stateTitle, supportsCooking, toBaseGrams,
+} from '@/lib/nutricion/coccion';
+import { parseNum } from '@/lib/nutricion/actions';
 
 /** Tope de `nutrition_logs.quantity_g` en la base. */
 const MAX_QUANTITY_G = 5000;
@@ -25,11 +31,23 @@ type Props = {
   products: FoodProduct[];
   recipes: RecipeNutrition[];
   defaultMeal: MealSlot;
+  /** Lo que el día ya lleva, para poder simular contra eso. */
+  dayTotals: DayTotals | null;
+  goals: NutritionGoals | null;
   onClose: () => void;
-  onAdd: (params: { pick: Pick; meal: MealSlot; quantityG: number }) => void;
+  onAdd: (params: {
+    pick: Pick;
+    meal: MealSlot;
+    /** Siempre en la forma base del producto: es lo que guarda la base. */
+    quantityG: number;
+    /** En qué forma se pesó, cuando el producto acepta las dos. */
+    loggedState: FoodState | null;
+  }) => void;
 };
 
-export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose, onAdd }: Props) {
+export function AddEntryModal({
+  visible, products, recipes, defaultMeal, dayTotals, goals, onClose, onAdd,
+}: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   /**
@@ -45,6 +63,11 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
   const [meal, setMeal] = useState<MealSlot>(defaultMeal);
   /** Cantidad tal como se escribe: el texto y la unidad en la que está. */
   const [qty, setQty] = useState<Quantity>({ value: '', unit: 'g' });
+  /** En qué forma se está pesando. null en lo que no distingue crudo de cocido. */
+  const [state, setState] = useState<FoodState | null>(null);
+  /** Si está abierta la simulación. Una vez abierta sigue lo que se teclea. */
+  const [simulating, setSimulating] = useState(false);
+  const formRef = useRef<ScrollView>(null);
 
   /**
    * La hoja no se desmonta al cerrarse, así que sin este sync `meal` se queda
@@ -57,10 +80,13 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
     setQuery('');
     setPick(null);
     setQty({ value: '', unit: 'g' });
+    setState(null);
+    setSimulating(false);
   }, [visible, defaultMeal]);
 
   const close = () => {
     setQuery(''); setPick(null); setQty({ value: '', unit: 'g' });
+    setState(null); setSimulating(false);
     onClose();
   };
 
@@ -72,6 +98,11 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
   const choose = (next: Pick) => {
     setPick(next);
     setQty(emptyQuantity(next.kind === 'producto' ? next.product : null));
+    // Se abre en la forma en la que está cargado el producto: es la que la
+    // balanza va a ver en la mayoría de los casos, y la que no convierte nada.
+    setState(next.kind === 'producto' ? baseState(next.product) : null);
+    // La simulación del alimento anterior no dice nada del nuevo.
+    setSimulating(false);
   };
 
   const q = query.trim().toLowerCase();
@@ -81,17 +112,87 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
 
   /** El producto elegido, que es quien sabe la equivalencia unidad → gramos. */
   const spec = pick?.kind === 'producto' ? pick.product : null;
+  /** El mismo producto, mirado por su conversión crudo ↔ cocido. */
+  const cooking = spec;
+  const base = baseState(cooking);
+  /**
+   * El selector solo aparece si la maestra trae los dos datos —forma base y
+   * rendimiento— y solo mientras se escriba en gramos: el peso de una unidad
+   * está en la forma base, así que contar huevos ya es pesar en esa forma.
+   */
+  const canPickState = supportsCooking(cooking) && qty.unit === 'g' && state !== null;
+
+  /** Lo escrito llevado a la forma base, que es lo que se guarda y se calcula. */
+  const toBase = (grams: number) => toBaseGrams(grams, state, cooking);
+
+  /** Cambiar de forma conserva la comida, no el número: 100 g crudos → 250 cocidos. */
+  const changeState = (next: FoodState) => {
+    const from = state;
+    setState(next);
+    setQty((q) => {
+      const grams = parseNum(q.value);
+      if (!from || q.unit !== 'g' || grams === null) return q;
+      return { ...q, value: formatAmount(convertState(grams, from, next, cooking)) };
+    });
+  };
+
+  /**
+   * Contar unidades y elegir la forma no se llevan: `unit_weight_g` está en la
+   * forma base, así que al pasar a unidades se vuelve a ella. El conteo que
+   * viene calculado contra los gramos de la otra forma se reescala, para que
+   * "2 huevos" sigan siendo dos huevos.
+   */
+  const changeQty = (next: Quantity) => {
+    if (next.unit === 'g' || !state || !base || state === base) return setQty(next);
+    const counted = parseNum(next.value);
+    setState(base);
+    setQty(
+      counted === null
+        ? next
+        : { ...next, value: formatAmount(counted * stateRatio(state, base, cooking)) }
+    );
+  };
+
+  /**
+   * Lo que sumaría lo escrito, recalculado a cada tecla mientras la simulación
+   * esté abierta. `null` con el campo vacío: ahí no hay nada que proyectar.
+   */
+  const simulation = useMemo(() => {
+    if (!simulating || !pick) return null;
+    const written = quantityToGrams(qty, spec);
+    if (written === null) return null;
+    const grams = toBaseGrams(written, state, cooking);
+    return {
+      quantityLabel: describeQuantity({ baseG: grams, units: spec, cooking, loggedState: state }),
+      added:
+        pick.kind === 'producto'
+          ? macrosFor(pick.product, 100, grams)
+          : macrosFor(pick.recipe, pick.recipe.total_g, grams),
+    };
+  }, [simulating, pick, qty, spec, state, cooking]);
+
+  const simulate = () => {
+    if (simulating) return setSimulating(false);
+    if (quantityToGrams(qty, spec) === null) {
+      return Alert.alert('Cantidad', 'Escribí cuánto vas a comer para simularlo.');
+    }
+    setSimulating(true);
+    // El panel nace debajo del botón, fuera de la hoja visible: sin esto la
+    // simulación se abre donde el usuario no la ve.
+    requestAnimationFrame(() => formRef.current?.scrollToEnd({ animated: true }));
+  };
 
   const confirm = () => {
     if (!pick) return;
-    const quantityG = quantityToGrams(qty, spec);
-    if (quantityG === null) return Alert.alert('Cantidad', 'Escribí cuánto comiste.');
+    const written = quantityToGrams(qty, spec);
+    if (written === null) return Alert.alert('Cantidad', 'Escribí cuánto comiste.');
+    const quantityG = toBase(written);
     // El mismo techo que tiene la columna en la base, avisado en castellano:
     // en unidades es fácil pasarse de un tecleo (300 huevos son 15 kg).
     if (quantityG > MAX_QUANTITY_G) {
       return Alert.alert('Cantidad', `Son ${formatAmount(quantityG)} g de una sentada. Revisá la cantidad.`);
     }
-    onAdd({ pick, meal, quantityG });
+    onAdd({ pick, meal, quantityG, loggedState: supportsCooking(cooking) ? state : null });
     close();
   };
 
@@ -103,8 +204,27 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
       ? { grams: Number(pick.product.serving_size_g), label: pick.product.serving_label ?? `1 porción` }
       : null;
 
+  // La porción de la etiqueta está en gramos de la forma base; si se está
+  // pesando en la otra, se ofrece traducida a esa.
   const applyServing = (grams: number) =>
-    setQty((q) => convertQuantity({ value: String(grams), unit: 'g' }, q.unit, spec));
+    setQty((q) =>
+      convertQuantity(
+        { value: String(fromBaseGrams(grams, state, cooking)), unit: 'g' },
+        q.unit,
+        spec
+      )
+    );
+
+  /**
+   * La cuenta que el usuario ya no tiene que hacer. Solo cuando de verdad hubo
+   * conversión: repetir "150 g crudos son 150 g crudos" es ruido.
+   */
+  const stateEquivalence = (() => {
+    if (!canPickState || !base || state === base) return null;
+    const written = quantityToGrams(qty, spec);
+    if (written === null || !state) return null;
+    return `Son ${formatAmount(toBase(written))} g ${stateLabel(base, true)}, que es como se guarda.`;
+  })();
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
@@ -143,6 +263,7 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
                     <Text style={s.itemName}>{p.name}</Text>
                     <Text style={s.itemMeta}>
                       {p.brand ? `${p.brand} · ` : ''}{p.energy_kcal ?? '—'} kcal /100 g
+                      {p.base_state ? ` en ${stateLabel(p.base_state)}` : ''}
                       {supportsUnits(p)
                         ? ` · 1 ${unitName(p, 1)} = ${formatAmount(unitWeight(p) ?? 0)} g`
                         : ''}
@@ -156,7 +277,7 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
               </ScrollView>
             </>
           ) : (
-            <ScrollView style={s.list} keyboardShouldPersistTaps="handled">
+            <ScrollView ref={formRef} style={s.list} keyboardShouldPersistTaps="handled">
               <Text style={s.picked}>
                 {pick.kind === 'producto' ? pick.product.name : pick.recipe.name}
               </Text>
@@ -176,8 +297,27 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
                 ))}
               </View>
 
+              {canPickState && (
+                <>
+                  <Text style={s.fieldLabel}>Lo pesaste</Text>
+                  <View style={s.meals}>
+                    {FOOD_STATES.map((f) => (
+                      <TouchableOpacity
+                        key={f}
+                        style={[s.meal, state === f && s.mealOn]}
+                        onPress={() => changeState(f)}>
+                        <Text style={[s.mealText, state === f && s.mealTextOn]}>
+                          {stateTitle(f)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
               <Text style={s.fieldLabel}>Cantidad</Text>
-              <QuantityInput spec={spec} quantity={qty} onChange={setQty} autoFocus />
+              <QuantityInput spec={spec} quantity={qty} onChange={changeQty} autoFocus />
+              {stateEquivalence ? <Text style={s.stateNote}>{stateEquivalence}</Text> : null}
               {servingShortcut && (
                 <TouchableOpacity onPress={() => applyServing(servingShortcut.grams)}>
                   <Text style={s.shortcut}>Usar {servingShortcut.label}</Text>
@@ -190,9 +330,26 @@ export function AddEntryModal({ visible, products, recipes, defaultMeal, onClose
                 </Text>
               )}
 
-              <TouchableOpacity style={s.primary} onPress={confirm}>
-                <Text style={s.primaryText}>Agregar</Text>
-              </TouchableOpacity>
+              <View style={s.actions}>
+                <TouchableOpacity style={s.secondary} onPress={simulate}>
+                  <Text style={s.secondaryText}>{simulating ? 'Ocultar' : 'Simular'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.primary, s.primaryGrow]} onPress={confirm}>
+                  <Text style={s.primaryText}>Agregar</Text>
+                </TouchableOpacity>
+              </View>
+
+              {simulating &&
+                (simulation ? (
+                  <ImpactPreview
+                    totals={dayTotals ?? { ...ZERO_TOTALS }}
+                    added={simulation.added}
+                    goals={goals}
+                    quantityLabel={simulation.quantityLabel}
+                  />
+                ) : (
+                  <Text style={s.hint}>Escribí una cantidad para ver el aporte.</Text>
+                ))}
             </ScrollView>
           )}
         </View>
@@ -261,10 +418,19 @@ const createStyles = (c: AppColorScheme) =>
     mealText: { color: c.textSecondary, fontSize: 13, fontWeight: '600' },
     mealTextOn: { color: c.accentText },
     shortcut: { color: c.accent, fontSize: 13, marginTop: 8, fontWeight: '600' },
+    stateNote: { color: c.textSecondary, fontSize: 13, marginTop: 8 },
     hint: { color: c.textMuted, fontSize: 12, marginTop: 8, lineHeight: 17 },
+    actions: { flexDirection: 'row', gap: 10, marginTop: 22 },
     primary: {
       backgroundColor: c.accent, borderRadius: 10, paddingVertical: 14,
-      alignItems: 'center', marginTop: 22,
+      alignItems: 'center',
     },
+    /** El agregar manda: la simulación se queda con lo justo para su palabra. */
+    primaryGrow: { flex: 1 },
     primaryText: { color: c.accentText, fontSize: 16, fontWeight: '700' },
+    secondary: {
+      borderRadius: 10, paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center',
+      borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface,
+    },
+    secondaryText: { color: c.accent, fontSize: 16, fontWeight: '700' },
   });

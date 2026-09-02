@@ -23,6 +23,8 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `recipes_goals_and_macro_views` | `recipes` + `recipe_items` (preparados hechos de productos del catálogo), `nutrition_goals` (meta diaria, una fila por usuario). `nutrition_logs` pasa a aceptar producto **o** receta. Vistas `recipe_nutrition` y `nutrition_log_macros`, ambas `security_invoker`, que resuelven los macros ya escalados |
 | `ocr_usage_limit_rpc` | `bump_ocr_usage(p_user, p_limit)`: suma un escaneo al contador diario y devuelve el total, o `-1` si ya pasó el tope. Incremento y verificación en la misma sentencia |
 | `exercises_never_deleted` | El catálogo de ejercicios pasa a ser acumulativo: las FK desde `routines` y `workout_logs` pasan de CASCADE a **RESTRICT**, `exercises` se queda sin política de DELETE (y sin el privilegio) y gana un unique por `(user_id, lower(name))` para que los seeds hagan upsert en vez de borrar y resembrar |
+| `product_cooking_state` | `food_products.base_state` (en qué forma están las macros: crudo o cocido) y `food_products.cooked_yield_pct` (gramos cocidos por cada 100 g crudos). `nutrition_logs.logged_state` recuerda en qué forma se pesó cada renglón; `quantity_g` sigue siendo siempre la forma base. `nutrition_log_macros` expone las tres |
+| `unify_raw_cooked_foods` | Funde las dos filas de papa y de batata en una sola, con el rendimiento deducido de sus propias kcal (89,53 % y 113,16 %). Muda los registros del diario convirtiendo el peso y anotando `logged_state`, y borra la fila sobrante |
 | `exercise_guide` | `exercises.dataset_id` (vínculo con el catálogo de referencia) e `exercises.instructions` (pasos en español). Bucket **público** `exercises` para las ilustraciones animadas. Unifica `Femorales` → `Isquiotibiales` |
 
 ### La cuota de escaneos
@@ -109,6 +111,49 @@ para preparados en frío —una ensalada, un batido— donde no hay pérdida. Us
 suma cuando sí hubo cocción subestima los macros de forma sistemática: en el
 caso de prueba (130 g de ingredientes que rinden 120 g) el error era del 8% en
 cada comida.
+
+### Crudo y cocido
+
+Un alimento cambia de peso al cocinarse pero sus macros no viajan con el agua:
+100 g de arroz seco son 360 kcal y 100 g del mismo arroz cocido, 130. Por eso
+cada fila del catálogo vale para **una sola forma**, y hasta ahora esa forma
+vivía únicamente en el nombre —«Arroz blanco (cocido)»—, que la app no puede
+interpretar.
+
+`base_state` la vuelve dato: dice en qué forma están las macros por 100 g y, por
+lo tanto, en qué forma se guarda `nutrition_logs.quantity_g`. `cooked_yield_pct`
+dice cuánto rinde: **gramos cocidos por cada 100 g crudos**, 250 en el arroz que
+absorbe agua y 75 en la pechuga que la suelta. Con las dos, el diario muestra el
+selector *Crudo / Cocido* y acepta el peso que de verdad tocó la balanza.
+
+**La conversión se hace en la app, antes de insertar.** `quantity_g` es siempre
+la forma base, así que las vistas, las recetas, las estadísticas y la
+exportación siguen valiendo sin cambiar una línea. Lo único que se guarda aparte
+es `logged_state`, la memoria de lo que dijo la balanza: sin ella, quien anotó
+200 g de arroz cocido vería 80 g en su diario y no reconocería su renglón.
+
+Las tres columnas son opcionales. Un empacado que no se cocina las deja en null
+y se comporta como antes; un producto con forma pero sin rendimiento solo se
+puede pesar en su forma, que es lo mismo que pasaba antes de esta migración.
+
+**Papa y batata estaban cargadas dos veces**, una fila en crudo y otra en
+cocido, porque antes era la única manera de poder pesarlas en las dos formas.
+`unify_raw_cooked_foods` las fundió. El rendimiento no se inventó: al cocinar se
+mueve agua y no energía, así que sale de las propias filas —
+`gramos_cocidos / gramos_crudos = kcal_crudo / kcal_cocido`— y por eso los
+registros que se mudaron conservan sus calorías exactas.
+
+Sobrevive la fila que refleja cómo se pesa el alimento en esta cocina: la papa
+**cocida** (cinco de sus seis registros se pesaron así) y la batata **cruda**
+(sin registros, y el plan la pesa en crudo). En la papa las dos filas no eran el
+mismo trozo de comida —la cruda era «con piel»— así que la proteína y la fibra
+de lo que se pese crudo quedan ~30 % bajas contra la fila vieja; las calorías,
+los carbohidratos y la grasa coinciden.
+
+El peso de una unidad (`unit_weight_g`), la porción y el contenido del envase
+están **en la forma base**. Por eso el selector de forma solo aparece mientras
+se escribe en gramos: contar huevos ya es pesar en la forma en la que está
+cargado el huevo.
 
 ## `functions/`
 

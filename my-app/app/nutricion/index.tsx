@@ -4,7 +4,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import type { FoodProduct, MealSlot, NutritionGoals, NutritionLogMacros, RecipeNutrition } from '@/types/database';
+import type {
+  FoodProduct, FoodState, MealSlot, NutritionGoals, NutritionLogMacros, RecipeNutrition,
+} from '@/types/database';
 import { addDays, formatLong, isToday } from '@/lib/date';
 import { useAnchoredDate } from '@/hooks/use-today';
 import { MacroBar } from '@/components/nutricion/macro-bar';
@@ -14,7 +16,7 @@ import {
   fetchDay, addEntry, deleteEntry, sumTotals, type DayTotals,
 } from '@/lib/nutricion/diario';
 import { fetchProducts } from '@/lib/nutricion/actions';
-import { formatQuantity } from '@/lib/nutricion/unidades';
+import { describeQuantity } from '@/lib/nutricion/coccion';
 import { fetchRecipes } from '@/lib/nutricion/recetas';
 
 export default function DiarioScreen() {
@@ -54,13 +56,19 @@ export default function DiarioScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const handleAdd = async ({ pick, meal, quantityG }: { pick: Pick; meal: MealSlot; quantityG: number }) => {
+  const handleAdd = async ({ pick, meal, quantityG, loggedState }: {
+    pick: Pick;
+    meal: MealSlot;
+    quantityG: number;
+    loggedState: FoodState | null;
+  }) => {
     const { error } = await addEntry({
       productId: pick.kind === 'producto' ? pick.product.id : undefined,
       recipeId: pick.kind === 'receta' ? pick.recipe.recipe_id : undefined,
       loggedOn: day,
       meal,
       quantityG,
+      loggedState,
     });
     if (error) Alert.alert('No se pudo agregar', error);
     else load();
@@ -151,9 +159,15 @@ export default function DiarioScreen() {
                       <View style={s.entryInfo}>
                         <Text style={s.entryName} numberOfLines={1}>{e.source_name}</Text>
                         <Text style={s.entryMeta}>
-                          {/* La fila trae la unidad del producto: los huevos se
-                              leen "2 huevos · 100 g", el arroz "150 g". */}
-                          {formatQuantity(e.quantity_g, e)}
+                          {/* La fila trae la unidad y la forma del producto: los
+                              huevos se leen "2 huevos · 100 g" y el arroz pesado
+                              cocido, "200 g cocidos · 80 g crudos". */}
+                          {describeQuantity({
+                            baseG: e.quantity_g,
+                            units: e,
+                            cooking: e,
+                            loggedState: e.logged_state,
+                          })}
                           {e.source_type === 'receta' ? ' · receta' : ''}
                           {'  ·  P '}{e.protein_g ?? 0}{'  C '}{e.carbs_g ?? 0}{'  G '}{e.fat_g ?? 0}
                         </Text>
@@ -190,6 +204,8 @@ export default function DiarioScreen() {
         products={products}
         recipes={recipes}
         defaultMeal={adding ?? 'desayuno'}
+        dayTotals={totals}
+        goals={goals}
         onClose={() => setAdding(null)}
         onAdd={handleAdd}
       />

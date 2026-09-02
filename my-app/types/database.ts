@@ -98,6 +98,24 @@ export type CardioLog = {
  */
 export type IntakeUnit = 'g' | 'unidad';
 
+/**
+ * En qué forma se pesó el alimento. Un mismo alimento cambia hasta 40 % de
+ * densidad calórica al cocerse (arroz seco 360 kcal/100 g, cocido 130), así que
+ * la forma es parte del dato: sin ella los gramos no significan nada.
+ */
+export type FoodState = 'crudo' | 'cocido';
+
+/**
+ * Lo mínimo para convertir gramos entre crudo y cocido. Lo cumplen tanto un
+ * producto del catálogo como un renglón ya resuelto del diario.
+ */
+export type CookingSpec = {
+  /** Forma en la que están las macros por 100 g. null → el producto no lo declara. */
+  base_state: FoodState | null;
+  /** Gramos cocidos que salen de 100 g crudos: 250 el arroz, 75 la pechuga. */
+  cooked_yield_pct: number | null;
+};
+
 export type FoodProduct = {
   id: string;
   /**
@@ -122,6 +140,10 @@ export type FoodProduct = {
   unit_weight_g: number | null;
   /** Nombre de la unidad en singular: "huevo", "galleta". null → "unidad". */
   unit_label: string | null;
+  /** Forma en la que están las macros de abajo, y en la que se guardan los gramos. */
+  base_state: FoodState | null;
+  /** Rendimiento al cocinar: gramos cocidos por cada 100 g crudos. */
+  cooked_yield_pct: number | null;
   energy_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -168,7 +190,10 @@ export type NutritionLog = {
   /** Fecha local del usuario, no UTC. */
   logged_on: string;
   meal: MealSlot;
+  /** Siempre en la forma base del producto, sea cual sea la que se pesó. */
   quantity_g: number;
+  /** En qué forma se pesó, cuando el producto acepta las dos. */
+  logged_state: FoodState | null;
   note: string | null;
   created_at: string;
 };
@@ -243,6 +268,7 @@ export type NutritionLogMacros = {
   logged_on: string;
   meal: MealSlot;
   quantity_g: number;
+  logged_state: FoodState | null;
   note: string | null;
   created_at: string;
   product_id: string | null;
@@ -253,6 +279,9 @@ export type NutritionLogMacros = {
   intake_unit: IntakeUnit | null;
   unit_weight_g: number | null;
   unit_label: string | null;
+  /** Los dos datos de cocción del producto; null en las recetas. */
+  base_state: FoodState | null;
+  cooked_yield_pct: number | null;
   energy_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -640,6 +669,8 @@ export type Database = {
           intake_unit?: IntakeUnit;
           unit_weight_g?: number | null;
           unit_label?: string | null;
+          base_state?: FoodState | null;
+          cooked_yield_pct?: number | null;
           energy_kcal?: number | null;
           protein_g?: number | null;
           carbs_g?: number | null;
@@ -669,6 +700,8 @@ export type Database = {
           intake_unit?: IntakeUnit;
           unit_weight_g?: number | null;
           unit_label?: string | null;
+          base_state?: FoodState | null;
+          cooked_yield_pct?: number | null;
           energy_kcal?: number | null;
           protein_g?: number | null;
           carbs_g?: number | null;
@@ -698,6 +731,7 @@ export type Database = {
           logged_on: string;
           meal: MealSlot;
           quantity_g: number;
+          logged_state?: FoodState | null;
           note?: string | null;
           created_at?: string;
         };
@@ -707,6 +741,7 @@ export type Database = {
           logged_on?: string;
           meal?: MealSlot;
           quantity_g?: number;
+          logged_state?: FoodState | null;
           note?: string | null;
         };
         Relationships: [

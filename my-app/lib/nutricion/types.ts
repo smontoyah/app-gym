@@ -3,7 +3,7 @@
  * El modelo transcribe; los cálculos los hace la app (ver `toPer100g`).
  */
 
-import type { IntakeUnit } from '@/types/database';
+import type { FoodState, IntakeUnit } from '@/types/database';
 
 export type OcrMacros = {
   energy_kcal: number | null;
@@ -96,6 +96,10 @@ export type ProductDraft = {
   unit_weight_g: string;
   /** Nombre de la unidad en singular: "huevo", "galleta". */
   unit_label: string;
+  /** En qué forma están las macros de abajo. null → el producto no lo declara. */
+  base_state: FoodState | null;
+  /** Gramos cocidos que salen de 100 g crudos. Vacío si no se sabe. */
+  cooked_yield_pct: string;
 } & Record<MacroField, string>;
 
 /**
@@ -115,5 +119,7 @@ export const EMPTY_DRAFT: ProductDraft = {
   intake_unit: 'g',
   unit_weight_g: '',
   unit_label: '',
+  base_state: null,
+  cooked_yield_pct: '',
   ...(Object.fromEntries(MACRO_FIELDS.map((f) => [f, ''])) as Record<MacroField, string>),
 };

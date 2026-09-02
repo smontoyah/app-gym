@@ -12,6 +12,7 @@ import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct, Recipe, RecipeItemWithProduct, RecipeNutrition } from '@/types/database';
 import { fetchProducts, parseNum } from '@/lib/nutricion/actions';
 import { QuantityInput } from '@/components/nutricion/quantity-input';
+import { stateLabel } from '@/lib/nutricion/coccion';
 import {
   emptyQuantity, formatAmount, formatQuantityShort, quantityFromGrams, quantityToGrams,
   supportsUnits, type Quantity,
@@ -203,7 +204,12 @@ export default function RecetaScreen() {
                 {supportsUnits(it.food_products) ? ` · ${formatAmount(Number(it.quantity_g))} g` : ''}
               </Text>
             </View>
-            <Text style={s.itemGrams}>{formatQuantityShort(it.quantity_g, it.food_products)}</Text>
+            {/* La forma va pegada al peso: un ingrediente cargado en crudo y
+                pesado como cocido desvía todo el preparado. */}
+            <Text style={s.itemGrams}>
+              {formatQuantityShort(it.quantity_g, it.food_products)}
+              {it.food_products.base_state ? ` ${stateLabel(it.food_products.base_state, true)}` : ''}
+            </Text>
           </TouchableOpacity>
         ))}
 

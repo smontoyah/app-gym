@@ -17,7 +17,7 @@ type Props = {
  * pantalla. Se arma a mano y no con `toLocaleString`: Hermes puede venir sin
  * datos de `Intl` y ahí el separador se cae en silencio.
  */
-const round = (n: number) =>
+export const formatMacro = (n: number) =>
   n >= 1000 ? thousands(n) : n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 
 export function MacroBar({ label, consumed, goal, unit }: Props) {
@@ -35,8 +35,8 @@ export function MacroBar({ label, consumed, goal, unit }: Props) {
       <View style={s.row}>
         <Text style={s.label}>{label}</Text>
         <Text style={s.value}>
-          {round(consumed)}
-          {goal ? <Text style={s.goal}> / {round(goal)} {unit}</Text> : <Text style={s.goal}> {unit}</Text>}
+          {formatMacro(consumed)}
+          {goal ? <Text style={s.goal}> / {formatMacro(goal)} {unit}</Text> : <Text style={s.goal}> {unit}</Text>}
         </Text>
       </View>
       <View style={s.track}>
@@ -45,8 +45,8 @@ export function MacroBar({ label, consumed, goal, unit }: Props) {
       {goal ? (
         <Text style={[s.remain, over && s.remainOver]}>
           {over
-            ? `${round(consumed - goal)} ${unit} por encima`
-            : `faltan ${round(goal - consumed)} ${unit}`}
+            ? `${formatMacro(consumed - goal)} ${unit} por encima`
+            : `faltan ${formatMacro(goal - consumed)} ${unit}`}
         </Text>
       ) : null}
     </View>

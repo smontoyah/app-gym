@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import type { IntakeUnit } from '@/types/database';
+import type { FoodState, IntakeUnit } from '@/types/database';
 import { Field } from './field';
 import {
   MACRO_FIELDS, MACRO_LABELS, type DraftSetter, type ProductDraft,
 } from '@/lib/nutricion/types';
+import { FOOD_STATES, stateLabel, stateTitle, yieldSummary } from '@/lib/nutricion/coccion';
+import { parseNum } from '@/lib/nutricion/actions';
 
 type Props = {
   draft: ProductDraft;
@@ -27,6 +29,12 @@ const INTAKE_UNITS: { unit: IntakeUnit; label: string }[] = [
   { unit: 'unidad', label: 'Unidades' },
 ];
 
+/** null es una opción de verdad: la mayoría de los empacados no se cocinan. */
+const BASE_STATES: { state: FoodState | null; label: string }[] = [
+  { state: null, label: 'No aplica' },
+  ...FOOD_STATES.map((state) => ({ state, label: stateTitle(state) })),
+];
+
 /**
  * Los mismos campos aparecen al escanear, al cargar a mano y al editar un
  * producto guardado. Tenerlos en un solo lugar evita que las tres pantallas se
@@ -36,6 +44,14 @@ export function ProductFields({ draft, onChange, flagged, hint, editable = true 
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const flag = (name: string) => flagged?.(name) ?? false;
+
+  // Lo que el número escrito significa en la cocina, dicho mientras se escribe:
+  // "250" no se lee solo, "gana 150 % de peso" sí.
+  const yieldPct = parseNum(draft.cooked_yield_pct);
+  const yieldNote = yieldSummary({ base_state: draft.base_state, cooked_yield_pct: yieldPct });
+  // null también cuando rinde exactamente 100: no gana ni pierde, y pintarlo
+  // como pérdida sería mentir con el color.
+  const gains = yieldPct === null || yieldPct === 100 ? null : yieldPct > 100;
 
   return (
     <>
@@ -92,7 +108,63 @@ export function ProductFields({ draft, onChange, flagged, hint, editable = true 
         </View>
       )}
 
-      <Text style={s.section}>Por 100 g</Text>
+      <Text style={s.section}>Crudo o cocido</Text>
+      <Text style={s.sectionHint}>
+        En qué forma se pesa este alimento, que es la forma a la que corresponden las
+        macros de abajo. Un mismo arroz da 360 kcal/100 g seco y 130 cocido: la forma es
+        parte del dato.
+      </Text>
+      <View style={s.chips}>
+        {BASE_STATES.map(({ state, label }) => {
+          const on = draft.base_state === state;
+          return (
+            <TouchableOpacity
+              key={label}
+              style={[s.chip, on && s.chipOn, !editable && !on && s.chipOff]}
+              disabled={!editable}
+              onPress={() => onChange('base_state')(state)}>
+              <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {draft.base_state && (
+        <View style={s.unitFields}>
+          <Text style={s.sectionHint}>
+            Cuánto pesa después de cocinarse. Con este dato el diario acepta el peso que
+            tocó la balanza, esté crudo o cocido, y hace la conversión solo.
+          </Text>
+          <Field
+            label="100 g crudos rinden"
+            value={draft.cooked_yield_pct}
+            onChange={onChange('cooked_yield_pct')}
+            numeric
+            suffix="g cocidos"
+            placeholder="250"
+            editable={editable}
+          />
+          {yieldNote ? (
+            <Text
+              style={[
+                s.yieldNote,
+                gains === false && s.yieldNoteLoss,
+                gains === null && s.yieldNoteFlat,
+              ]}>
+              {yieldNote}
+            </Text>
+          ) : (
+            <Text style={s.sectionHint}>
+              El arroz ronda los 250 g (absorbe agua) y la pechuga los 75 (la suelta). Sin
+              este número el diario solo acepta el peso en {stateLabel(draft.base_state)}.
+            </Text>
+          )}
+        </View>
+      )}
+
+      <Text style={s.section}>
+        Por 100 g{draft.base_state ? ` en ${stateLabel(draft.base_state)}` : ''}
+      </Text>
       {hint ? <Text style={s.sectionHint}>{hint}</Text> : null}
       {MACRO_FIELDS.map((f) => (
         <Field
@@ -125,4 +197,11 @@ const createStyles = (c: AppColorScheme) =>
     chipText: { color: c.textSecondary, fontSize: 13, fontWeight: '600' },
     chipTextOn: { color: c.accentText },
     unitFields: { marginTop: 2 },
+    yieldNote: {
+      color: c.success, fontSize: 12, lineHeight: 17, marginTop: -4, marginBottom: 12,
+    },
+    // Perder peso no es un error, pero es la mitad del dato que se olvida: se
+    // distingue del que gana para no leer los dos igual de rápido.
+    yieldNoteLoss: { color: c.warning },
+    yieldNoteFlat: { color: c.textSecondary },
   });

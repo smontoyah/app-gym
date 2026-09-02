@@ -37,6 +37,10 @@ export function draftToRow(draft: ProductDraft) {
     // buscarla otra vez.
     unit_weight_g: parseNum(draft.unit_weight_g),
     unit_label: draft.unit_label.trim() || null,
+    base_state: draft.base_state,
+    // Sin forma base no hay desde dónde convertir, así que el rendimiento
+    // suelto no se guarda: sería un número que nadie puede usar.
+    cooked_yield_pct: draft.base_state ? parseNum(draft.cooked_yield_pct) : null,
     ...macros,
   };
 }
@@ -55,6 +59,14 @@ export function validateDraft(draft: ProductDraft): string | null {
   }
   if (unitWeight !== null && unitWeight <= 0) {
     return 'El peso de una unidad tiene que ser mayor que 0. Dejalo vacío si no aplica.';
+  }
+
+  const yieldPct = parseNum(draft.cooked_yield_pct);
+  if (yieldPct !== null && (yieldPct <= 0 || yieldPct > 1000)) {
+    return 'El rendimiento al cocinar tiene que estar entre 0 y 1000 g por cada 100 g crudos. Dejalo vacío si no lo sabés.';
+  }
+  if (yieldPct !== null && !draft.base_state) {
+    return 'Para usar el rendimiento hay que decir primero en qué forma están las macros: crudo o cocido.';
   }
 
   const serving = parseNum(draft.serving_size_g);
@@ -170,6 +182,8 @@ export function productToDraft(p: FoodProduct): ProductDraft {
     intake_unit: p.intake_unit ?? 'g',
     unit_weight_g: str(p.unit_weight_g),
     unit_label: p.unit_label ?? '',
+    base_state: p.base_state ?? null,
+    cooked_yield_pct: str(p.cooked_yield_pct),
     ...(Object.fromEntries(
       MACRO_FIELDS.map((f) => [f, str(p[f])])
     ) as Record<MacroField, string>),

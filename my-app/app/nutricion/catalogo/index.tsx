@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { AppColorScheme } from '@/constants/theme';
 import type { FoodProduct } from '@/types/database';
 import { fetchProducts, signPhotoUrls, deleteProduct } from '@/lib/nutricion/actions';
+import { stateLabel } from '@/lib/nutricion/coccion';
 
 export default function CatalogoScreen() {
   const { colors } = useTheme();
@@ -131,7 +132,9 @@ export default function CatalogoScreen() {
                   {p.brand ? <Text style={s.brand} numberOfLines={1}>{p.brand}</Text> : null}
                   <Text style={s.macros}>
                     {p.energy_kcal ?? '—'} kcal · P {p.protein_g ?? '—'} · C {p.carbs_g ?? '—'} · G {p.fat_g ?? '—'}
-                    <Text style={s.per}>  /100 g</Text>
+                    {/* La forma es parte de la base: 100 g de arroz seco y 100 g
+                        del mismo arroz cocido no son el mismo renglón. */}
+                    <Text style={s.per}>  /100 g{p.base_state ? ` en ${stateLabel(p.base_state)}` : ''}</Text>
                   </Text>
                 </View>
                 <Text style={s.chevron}>›</Text>
