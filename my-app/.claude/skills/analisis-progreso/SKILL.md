@@ -316,9 +316,9 @@ depende de cuánto aceite llevó el plato y de si comió por fuera.
 | | Valor | Razón |
 |---|---|---|
 | Calorías | **1.850** | Elegida para que el déficit sea detectable **aunque el gasto esté en el extremo bajo** del rango (ver abajo) |
-| Proteína | **165 g** | 2,11 g/kg de peso; ~2,6 g/kg de masa magra. 36 % de las kcal. **Es la proteccion contra perder musculo en deficit: no bajarla** |
+| Proteína | **170 g** | 2,18 g/kg de peso; ~2,7 g/kg de masa magra. **Es la proteccion contra perder musculo en deficit: no bajarla** |
 | Carbohidratos | **160 g** | El resto del presupuesto, tras proteína y el piso de grasa |
-| Grasa | **63 g** | Piso hormonal 0,81 g/kg. **No bajar de aquí** |
+| Grasa | **63 g** | Piso hormonal 0,81 g/kg. **No bajar de aquí.** Toda de alimentos enteros — huevo, aguacate, almendra, carne. Nada de aceite libre: para cocinar va spray (~2 g/día) |
 | Fibra | **30 g** | Venía sin meta y en 15 g reales |
 
 Puesta el 2026-09-05 (reemplaza los 2.000 del 4-sep). **No moverla hasta el

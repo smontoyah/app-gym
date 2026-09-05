@@ -7,6 +7,72 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-09-05 (noche) — Grasa de alimentos, spray, y "Ensalada de la casa"
+
+### Dos correcciones suyas, las dos acertadas
+
+1. **"La grasa que sí como, que venga de alimentos y no de aceite de oliva."**
+   Yo había metido 23 g de oliva como mecanismo para llegar a la meta de grasa
+   — salida perezosa. Rearmado con grasa de alimentos enteros: **97 % viene de
+   huevo (19 g), aguacate (11,7), almendra (10), carne (8,5), pollo (5,2) y
+   leche (3,4)**; solo 2 g de spray. El cambio salió **gratis y mejor**:
+   +5 g de proteína y +7 g de fibra por las mismas kcal.
+   **Regla: la grasa se cubre con alimentos, no con aceite añadido.**
+
+2. **El spray SÍ vale la pena, pero no por lo que parece.** No ahorra calorías
+   del presupuesto: si se quita el aceite sin reponer la grasa, cae a 0,53 g/kg,
+   muy por debajo del piso de 0,80. Lo que hace es **convertir una fuga de
+   130–220 kcal/día ("un poquito para que no se pegue" × 3 cocciones) en una de
+   ~18 kcal.** Reduce incertidumbre, no calorías. Su frase "no la estoy
+   contando" es válida **solo con spray**; con aceite de botella hay que pesarlo.
+
+### Producto nuevo: "Ensalada de la casa" (`ed576950`)
+
+No quería registrar la ensalada, pero la come en almuerzo **y** cena. En vez de
+aceptar el hueco, se resolvió la fricción real —que era **pesar**, no
+registrar—: producto de composición fija, `intake_unit='unidad'`,
+`unit_weight_g=230`, un toque por comida y cero balanza.
+
+```
+230 g = lechuga 50 + tomate 80 + pepino 60 + zanahoria 40
+48,3 kcal · P 2,08 · C 10,77 · G 0,47 · fibra 3,43   (21 kcal/100 g)
+```
+
+**Condición documentada en `ocr_raw`: vale SOLO sin aliño.** Con aceite,
+aguacate, queso o mayonesa hay que anotarlo aparte — una cucharada de aceite es
+el doble de toda la ensalada.
+
+**El argumento que lo decidió no fueron las kcal (97/día, despreciables) sino la
+fibra:** sin registrarla, la app mostraría 30 g cuando come 37. Una falsa alarma
+diaria erosiona la confianza en los números, que es el activo que costó una
+semana reconstruir.
+
+**Patrón reutilizable:** cuando rechace registrar algo, preguntar *qué* le
+estorba. Casi siempre es pesar, no registrar — y un producto de composición fija
+con `intake_unit='unidad'` lo resuelve sin perder datos.
+
+### Meta final (aplicada 2026-09-05)
+
+`nutrition_goals` → **1.850 kcal · 170 P · 160 C · 63 G · 30 fibra**
+Proteína 2,18 g/kg. El día tipo entrega 1.848 · 171 P · 158 C · 63 G · 37 fibra.
+
+Déficit real por escenario: gasto 2.050 → −0,7 kg / 2.150 → −1,1 / 2.250 → −1,5 /
+2.380 → −1,9 kg en 4 semanas.
+
+### Contraste con el plan de otro nutricionista (foto que compartió)
+
+Plan de 6 comidas para recomposición, calculado sobre 3 días representativos:
+**promedio 1.851 kcal** — a **1 kcal** de donde llegamos por otra vía. Fuerte
+validación cruzada del número, y deja **los 2.399 de Ciro como el atípico**.
+Pero su reparto (P 1,91 · C 1,74 · G 1,12 g/kg) es alto en grasa y bajo en
+carbos para 19 series × 4 sesiones; el martes cae a 1.665 kcal en día de pesas.
+Y **16 de sus alimentos no existen en el catálogo** (pancakes UPN, Clight,
+gelatina light, Chocoline, barras, cuajada, maní, jamón, solomo, cañón…), con
+"100 g de arroz" y "carne 120 g" sin decir crudo o cocido. **Inmedible para él.**
+Ideas que sí se le tomaron: más variedad de fruta y almendras diarias.
+
+---
+
 ## 2026-09-05 (tarde) — Meta a 1.850. Corrección: no presentar déficits puntuales.
 
 ### Objeción de Sebastián, y tenía razón
