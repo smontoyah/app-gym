@@ -315,13 +315,28 @@ depende de cuánto aceite llevó el plato y de si comió por fuera.
 
 | | Valor | Razón |
 |---|---|---|
-| Calorías | **2.000** | Déficit de ~16 % sobre un gasto de ~2.380 ⇒ 0,35–0,45 kg/semana, el rango que conserva masa magra |
-| Proteína | **165 g** | 2,1 g/kg de peso; ≈2,6 g/kg de masa magra |
-| Carbohidratos | **180 g** | El resto del presupuesto |
-| Grasa | **65 g** | Piso hormonal (~0,8 g/kg). **No bajar de aquí** |
-| Fibra | **30 g** | Venía sin meta y en 15 g reales. Único hueco nutricional de fondo |
+| Calorías | **1.850** | Elegida para que el déficit sea detectable **aunque el gasto esté en el extremo bajo** del rango (ver abajo) |
+| Proteína | **165 g** | 2,11 g/kg de peso; ~2,6 g/kg de masa magra. 36 % de las kcal. **Es la proteccion contra perder musculo en deficit: no bajarla** |
+| Carbohidratos | **160 g** | El resto del presupuesto, tras proteína y el piso de grasa |
+| Grasa | **63 g** | Piso hormonal 0,81 g/kg. **No bajar de aquí** |
+| Fibra | **30 g** | Venía sin meta y en 15 g reales |
 
-Puesta el 2026-09-04. **No moverla hasta que el registro esté calibrado.**
+Puesta el 2026-09-05 (reemplaza los 2.000 del 4-sep). **No moverla hasta el
+corte de las 4 semanas.**
+
+> ### ⚠ Regla que nació de un error: nunca presentar un déficit puntual
+>
+> El 2026-09-05 se presentó "déficit de 433 kcal ⇒ 0,39 kg/semana" tomando el
+> **centro** del rango de gasto como si fuera medición. Sebastián objetó que ya
+> venía comiendo así y no bajaba — y tenía razón: al verificarlo, el día
+> propuesto no era menor en kcal reales que el que ya comía.
+>
+> **Obligatorio: antes de proponer cualquier objetivo, tabular el déficit y la
+> pérdida a 4 semanas en TODO el rango de gasto (2.050 · 2.150 · 2.250 · 2.380).**
+> Si el extremo bajo no produce una señal detectable sobre 0,25 kg de ruido
+> (≈0,8 kg en 4 semanas), **el objetivo está demasiado alto**: hay que bajarlo
+> hasta que el peor caso también responda. Un plan que solo funciona si acerté
+> no sirve — su modo de falla es otro mes sin información.
 
 ### Protocolo vigente: 4 semanas de calibración (desde el 2026-09-04)
 

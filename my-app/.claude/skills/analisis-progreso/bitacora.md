@@ -7,6 +7,66 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-09-05 (tarde) — Meta a 1.850. Corrección: no presentar déficits puntuales.
+
+### Objeción de Sebastián, y tenía razón
+
+Ante el día propuesto de 1.947 kcal: *"yo ya venía comiendo como me recomiendas
+y no he bajado peso."* Verificado contra sus días completos: **cierto.** El día
+propuesto quitaba ~240 kcal de relleno (saltinas, palomitas, aguacate) y añadía
+~270 de lenteja, verdura y el aceite visible. **En kcal reales era el mismo
+día**, mejor compuesto pero sin recorte.
+
+### El error de método
+
+Presenté "déficit 433 kcal ⇒ 0,39 kg/sem" usando el **centro** del rango de
+gasto (2.380) como si fuera un dato. Si el gasto real está en 2.050–2.150, ese
+mismo día da 103–203 kcal de déficit ⇒ **0,4–0,7 kg en 4 semanas**, que es
+indistinguible del ruido. Habría producido otro mes plano sin información —
+exactamente el problema que veníamos resolviendo.
+
+**Su experiencia vivida (no baja) es evidencia de que el gasto está en la parte
+baja del rango.** Hay que ponderarla, no descartarla por ser subjetiva.
+
+Regla escrita en §7 de la skill: **tabular siempre el déficit en todo el rango
+de gasto y exigir que el extremo bajo dé ≥0,8 kg en 4 semanas.**
+
+### Meta nueva (aplicada 2026-09-05)
+
+`nutrition_goals` → **1.850 kcal · 165 P · 160 C · 63 G · 30 fibra**
+Proteína 2,11 g/kg (36 % de las kcal), grasa 0,81 g/kg (piso hormonal).
+
+Déficit resultante por escenario de gasto — **todos dan señal**:
+
+| Gasto | Déficit | 4 semanas |
+|---|---|---|
+| 2.050 | 227 | −0,8 kg |
+| 2.150 | 327 | −1,2 kg |
+| 2.250 | 427 | −1,6 kg |
+| 2.380 | 557 | −2,0 kg |
+
+### El día tipo (versión B)
+
+Desayuno 4 huevos + arepa 100 g + leche 200 ml · Almuerzo pollo 200 g crudos +
+arroz 80 g cocidos + lenteja 150 g cocidos + ensalada + aceite 10 g · Snack
+ISO100 30 g + banano · Cena **carne molida 95/5** 170 g crudos + papa 120 g
+cocidos + brócoli 150 g + aceite 13 g.
+
+Truco que vale la pena repetir: **95/5 en vez de 90/10** da más proteína con
+60 kcal menos. Estaba en el catálogo sin usar.
+
+**Rampa de fibra** (para no confundir el ruido de la semana 1 con fracaso):
+lenteja 75 g → 110 → 150 en tres semanas (fibra 22 → 25 → 28 g), compensando
+las kcal faltantes con arroz.
+
+### Si en 4 semanas no baja ni 0,8 kg
+
+Con el registro cerrado y esta meta, el modelo metabólico estaría mal de raíz.
+Ahí toca dejar de ajustar calorías y mandarlo a descartar causas médicas
+(tiroides, medicación) con datos en mano.
+
+---
+
 ## 2026-09-05 — Cardio: compromiso de registro. Última pregunta cerrada.
 
 **"Apenas estoy retomando el cardio. Me comprometo a anotarlo en la app cuando
