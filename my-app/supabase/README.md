@@ -26,6 +26,7 @@ usuario sigue aplicando y no hay resolución ambigua de nombres.
 | `product_cooking_state` | `food_products.base_state` (en qué forma están las macros: crudo o cocido) y `food_products.cooked_yield_pct` (gramos cocidos por cada 100 g crudos). `nutrition_logs.logged_state` recuerda en qué forma se pesó cada renglón; `quantity_g` sigue siendo siempre la forma base. `nutrition_log_macros` expone las tres |
 | `unify_raw_cooked_foods` | Funde las dos filas de papa y de batata en una sola, con el rendimiento deducido de sus propias kcal (89,53 % y 113,16 %). Muda los registros del diario convirtiendo el peso y anotando `logged_state`, y borra la fila sobrante |
 | `exercise_guide` | `exercises.dataset_id` (vínculo con el catálogo de referencia) e `exercises.instructions` (pasos en español). Bucket **público** `exercises` para las ilustraciones animadas. Unifica `Femorales` → `Isquiotibiales` |
+| `exercise_media_select_policy` | Política de **SELECT** sobre `storage.objects` para el bucket `exercises`. Sin ella la subida fallaba entera: la Storage API inserta con `INSERT … RETURNING`, y un RETURNING bajo RLS necesita permiso de lectura sobre la fila nueva |
 
 ### La cuota de escaneos
 
@@ -61,6 +62,21 @@ viajan en la misma consulta que la pantalla del día ya hacía.
 
 1. Buscalo en el navegador del dataset (abrí su `index.html`, tiene búsqueda por
    nombre, equipo y músculo) y copiá el id de 4 dígitos.
+
+   Atajo que sirvió en la fase CARGA: **los PDF de Ciro traen una miniatura por
+   ejercicio y son las mismas ilustraciones de Gym visual que el dataset.**
+   Sacándolas con `pdfimages -j -p el.pdf out/im` y comparándolas contra
+   `images/*.jpg` se empareja mirando el dibujo en vez de traduciendo el nombre.
+   Dos detalles del método: las miniaturas salen en orden de página y los
+   `object ID` que repite `pdfimages -list` confirman el orden (la caminadora es
+   el mismo objeto en las cinco páginas donde aparece); y varias miniaturas son
+   fotogramas de los videos del propio entrenador, no del dataset, así que ahí
+   no hay nada que comparar y toca elegir por nombre.
+
+   Así se cazó que los dos «Elevación de talón sentado en máquina» del PDF
+   (lunes y viernes) traen dibujos de **máquinas distintas** —uno es la de
+   sentado con el peso en las rodillas y el otro una prensa de talón—, aunque el
+   nombre, las reps, la cadencia y el descanso sean idénticos.
 2. Agregá la línea a `scripts/ejercicios-dataset.mjs`, con la clave igual al
    nombre exacto en `exercises`.
 3. Corré el script, que convierte la animación a WebP, la sube y actualiza la
@@ -76,6 +92,35 @@ viajan en la misma consulta que la pantalla del día ya hacía.
 
 Un ejercicio sin `dataset_id` no es un error: sale en la app como salía antes,
 sin miniatura y sin guía.
+
+**Si el script falla con `storage — new row violates row-level security policy`
+en todos los archivos**, lo que falta es la política de **SELECT** del bucket,
+no la de INSERT: la Storage API sube con `INSERT … RETURNING` y bajo RLS un
+RETURNING necesita leer la fila nueva. Lo arregla la migración
+`exercise_media_select_policy`. Se verifica en la base sin salir del SQL:
+
+```sql
+-- como authenticated, el mismo insert pasa sin RETURNING y falla con RETURNING
+select policyname, cmd from pg_policies
+ where schemaname='storage' and tablename='objects' and policyname ilike '%exercise%';
+```
+
+Tienen que salir tres filas (INSERT, SELECT, UPDATE). Y ojo con `storage.objects`
+si hay que limpiar a mano: un trigger (`storage.protect_delete`) bloquea el
+`delete` directo, y el escape es `set_config('storage.allow_delete_query','true',true)`
+dentro de la transacción. Borrar la fila sin borrar el archivo deja un huérfano,
+así que para archivos de verdad usá la Storage API.
+
+**El estado real se mira en la base, no en la app.** Si `dataset_id` e
+`instructions` están llenos pero `image_url` es null, la subida nunca corrió:
+
+```sql
+select count(*) from storage.objects where bucket_id = 'exercises';  -- 0 = nada subido
+```
+
+Ese estado es engañoso en pantalla: la tarjeta solo pinta miniatura si
+`image_url` no es null, pero `hasGuide` también acepta `instructions`, así que el
+modal «cómo se hace» abre con los pasos y sin dibujo.
 
 **La media es © Gym visual** (gymvisual.com) y se usa a 180×180 con la
 atribución a la vista en el modal, que es lo que pide su NOTICE. Por eso los
@@ -175,6 +220,44 @@ y deja todo lo demás en pie**: es idempotente y no destructivo. `routines` es l
 prescripción de la fase vigente, así que entra una nueva y sale la anterior; el
 catálogo de `exercises` se siembra por upsert y `workout_logs` no se toca.
 
+| Archivo | Fase |
+|---|---|
+| `ajuste1_2026-08-03.sql` | AJUSTE 1 · RPE 7/10 · RIR 3 · super series · 4 días |
+| `carga_ds_rir2_2026-09-07.sql` | CARGA (DS \| RIR 2) · RIR 2 · drop sets · 5 días · 5 semanas |
+
+### Renombrar en vez de insertar
+
+Cuando el entrenador rebautiza un movimiento que ya se venía haciendo
+(«Flexión de rodilla» → «Leg curl», «Vuelos laterales» → «Elevaciones
+laterales»), el seed **renombra la fila existente** antes del upsert del
+catálogo, y no deja que el nombre nuevo entre como fila aparte.
+
+No es cosmético: de ese id cuelgan los `workout_logs`, que son los que alimentan
+la carga sugerida (`previous_sets` + `buildSuggestion`) y el récord por
+ejercicio. Si el nombre nuevo entrara como fila nueva, el mismo movimiento
+arrancaría con historial vacío y la app dejaría de sugerir carga justo cuando
+más sirve. El rename va **antes** del upsert: al revés, la fila nueva ya
+existiría y el rename chocaría contra el unique.
+
+Solo aplica cuando es el mismo movimiento. Si cambió de verdad —«Extensión de
+columna a 15°» pasó a «en banco a 45°», que es otro banco— igual conviene
+renombrar (el ejercicio ocupa el mismo lugar en la rutina), pero hay que
+**actualizar también el `dataset_id`** en `scripts/ejercicios-dataset.mjs`,
+porque la ilustración sí es otra.
+
+### Drop sets y repeticiones que no son un número
+
+`routines` prescribe el ejercicio, no cada serie por separado, así que el
+«Drop» que el PDF marca en la última fila de la tabla de series va en `notes`
+(«Última serie en drop set»), que la app ya pinta debajo de los chips. Modelar
+la serie como fila para un dato que hoy siempre dice lo mismo —la última— sería
+pagar una tabla por un texto.
+
+`target_reps` es **texto** justamente para que convivan `'11'`, `'22'`,
+`'11/lado'` y `'fm'` (fallo muscular). `parseTargetReps` saca el primer número,
+así que `'fm'` deja la sugerencia de carga en null: en una serie al fallo no hay
+repetición objetivo que cumplir, y eso es lo correcto, no un hueco.
+
 Antes no era así —el seed borraba las tres tablas— y cada fase nueva estrenaba
 un historial vacío, que es justo lo que hace falta para saber si la fase
 anterior sirvió. La migración `exercises_never_deleted` cerró esa puerta desde
@@ -183,7 +266,8 @@ catálogo ahora falla en vez de vaciar el historial en silencio.
 
 ### Cuando llegue una fase nueva (AJUSTE 2, 3…)
 
-1. Copiá `ajuste1_2026-08-03.sql` a un archivo nuevo con la fecha de la fase.
+1. Copiá el seed de la fase vigente (hoy `carga_ds_rir2_2026-09-07.sql`) a un
+   archivo nuevo con la fecha de la fase.
 2. Actualizá el catálogo de ejercicios, las filas de rutina, `cardio_plan`
    y la fila de `training_phases` (`name`, `started_on`, `rpe_target`,
    `rir_target`, `method`, `warmup`).

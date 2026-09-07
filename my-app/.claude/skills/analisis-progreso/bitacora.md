@@ -7,6 +7,95 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-09-06 — Primera receta cargada: "Avena trasnochada proteica"
+
+Pidió un desayuno rápido con avena, chía, ISO100 y yogurt. Quedó cargada como
+**receta** (`b5f40017-d9b0-494c-bfdb-89fca54dece9`), la primera de la app —
+`recipes` estaba vacía.
+
+```
+337 g = avena Ekono 40 + chía 12 + ISO100 30 + yogurt griego entero 125
+        + leche latti 120 + almendra cruda 10
+548,6 kcal · P 48,3 · C 46,6 (neto 37,4) · G 21,7 · fibra 9,1 · Na 244
+```
+
+### La restricción que definió el diseño
+
+**Los 4 huevos son 19 de los 63 g de grasa del día.** Cualquier avena que los
+reemplace tiene que traer su propia grasa o rompe el piso hormonal — una avena
++ agua + whey trae 5–8 g y lo deja en ~50. Por eso la receta lleva yogurt
+**entero** (7,4 g), chía (3,2) y almendra (5,0): grasa de alimentos, según la
+regla que él mismo fijó el 5-sep. Resultado: **grasa igualada (21,7 vs 22,4),
++14,4 g de proteína y +5,4 g de fibra por 38 kcal más.**
+
+Generalizable: **antes de sacar un alimento del día, mirar de qué macro es
+ancla.** El huevo se lee como "proteína" y en este plan es sobre todo grasa.
+
+### La trampa contable: el scoop no se duplica
+
+Si la receta va al desayuno, el snack **no** lleva ISO100 (pasa a banano 118 +
+almendra 15). Con dos scoops el día se va a ~185 g de proteína sobre 170.
+Quedó escrito en `notes` de la receta.
+
+### Corrección a mí mismo: el "día tipo" no es lo que come
+
+Iba a dimensionar la fibra contra los 37 g del día tipo del 5-sep. **Sus días
+reales del 28-ago al 5-sep dan fibra 6,7–17,9 (mediana ~15).** El día tipo es
+una propuesta, no una medición — no usarlo como línea base. Por eso la chía
+arranca en **12 g y sube a 15** a las dos semanas: 9 g de fibra en una sola
+comida viniendo de 15 g/día es salto grande.
+
+### Corrección: el frasco necesita agua, y yo conté mal el líquido
+
+Dije "245 g de líquido contra ~230 g de capacidad, queda espeso y cucharable"
+contando el yogurt como si fuera agua. **El griego entero es ~18 % sólidos.**
+El balance real:
+
+| | |
+|---|---|
+| Agua libre (yogurt 102 + leche 108) | **210 g** |
+| Demanda (avena 40 g ×2–2,5 · chía 12 g ×10–12 · whey 30 g ×0,8–1) | **224–274 g** |
+
+**Va en déficit de 14 a 64 g: tal como salió, queda un ladrillo.** Corregido con
+**~80 ml de agua, de noche**. Dato que sorprende: **12 g de chía piden más agua
+(120–144) que 40 g de avena (80–100).** Es el ingrediente que manda la textura.
+
+**El agua va como agua, no como más leche.** La leche está en 120 ml por
+calibración de grasa (21,7 g para empatar los huevos); arreglar textura con
+leche cuesta 38 kcal por cada 80 ml y no compra nada. Regla general:
+**el líquido con macros es presupuesto, el agua es la perilla de textura.**
+
+**Trampa nueva, la más cara del asunto:** el agua no es `recipe_item`, así que
+`total_g` sigue en 337 mientras el frasco terminado pesa ~417 g. Si pesa el
+frasco y teclea 417, la app multiplica por 1,237 → **679 kcal en vez de 549,
+130 kcal de sobreconteo diario y silencioso.** Quedó en `notes` en mayúsculas:
+*registrar siempre 337, no pesar el frasco.* Mismo patrón que el arroz crudo.
+
+**Para recetas con hidratación, `yield_g` se deja en null a propósito.** Ponerle
+el peso del frasco con agua obligaría a pesar el preparado cada mañana, que es
+justo la fricción que la receta venía a eliminar.
+
+### Fricción encontrada en la app (no corregida)
+
+`add-entry-modal.tsx:202` arma el atajo "Usar 1 porción" **solo para
+productos** (`serving_size_g`); las recetas no tienen equivalente, así que toca
+teclear 337 g a mano. Es el mismo problema de fricción que resolvió
+`intake_unit='unidad'` en la Ensalada de la casa. Si registra la avena a diario
+y le estorba, ahí está el arreglo.
+
+### Auditoría de catálogo, de paso
+
+- **Avena Ekono declara 17 g de proteína/100 g** contra 13,15 del genérico USDA.
+  La etiqueta es internamente consistente (4,1 g en la porción de 24 g) y el
+  control Atwater cuadra dentro del redondeo, así que se usó tal cual. Si
+  estuviera inflada son ~1,5 g de proteína en los 40 g: irrelevante.
+- **Yogurt Vita Latti "griego": 6,4 g de proteína/100 g.** No es densidad de
+  griego de verdad (9–10). En la receta está por la grasa y la textura, no por
+  la proteína — cambiarlo por descremado rompe el piso de 63 g.
+- Chía e ISO100: etiquetas consistentes entre `per_100g` y `per_serving`.
+
+---
+
 ## 2026-09-05 (noche) — Grasa de alimentos, spray, y "Ensalada de la casa"
 
 ### Dos correcciones suyas, las dos acertadas
