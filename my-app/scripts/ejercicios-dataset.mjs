@@ -72,7 +72,11 @@ export const MAPA = {
 
   // ── Brazo ──
   'Extensión de codo en polea alta con barra': '0201', // cable pushdown
-  'Tríceps katana en polea (neutro)': '1723', // ≈ cable one arm tricep pushdown — el «katana» cruza el cuerpo; el dataset solo trae el pushdown a un brazo
+  // Ciro lo llama «tríceps katana», pero el movimiento es el de la polea BAJA:
+  // la mano detrás de la nuca y el codo extendiendo hacia arriba. El 1723 que
+  // estuvo acá hasta el 2026-09-16 era un pushdown a un brazo —otro ejercicio—,
+  // y por eso el gif no se parecía a lo que se hace. Se renombró el ejercicio.
+  'Extensión unilateral de tríceps en polea baja (neutro)': '1727', // ≈ cable standing reverse grip one arm overhead tricep extension — el dataset lo dibuja con agarre supino; el de Ciro es neutro
   'Extensión de tríceps en polea alta (overhead) con cuerda': '1724', // cable rope high pulley overhead tricep extension
   'Curl de bíceps predicador en máquina': '0592', // lever preacher curl
   'Curl de bíceps con polea (barra)': '0868', // cable curl

@@ -56,7 +56,13 @@ update public.exercises e set name = v.nuevo
     ('Pec deck en cabina',                                  'Pec Deck'),
     ('Press militar (neutro) con mancuernas en banco a 70°','Press militar con mancuernas en banco inclinado'),
     ('Vuelos laterales con mancuernas',                     'Elevaciones laterales con mancuernas'),
-    ('Hip thrust con barra/máquina',                        'Hip Thrust con barra')
+    ('Hip thrust con barra/máquina',                        'Hip Thrust con barra'),
+    -- Este no lo rebautizó Ciro: el PDF dice «Tríceps katana» y el movimiento
+    -- que describe es la extensión a un brazo con la polea baja, la mano
+    -- detrás de la nuca. El nombre del PDF no le decía nada a nadie —y hacía
+    -- que el gif vinculado fuera un pushdown, otro ejercicio— así que se
+    -- nombra por el movimiento (2026-09-16).
+    ('Tríceps katana en polea (neutro)',                    'Extensión unilateral de tríceps en polea baja (neutro)')
   ) as v(viejo, nuevo)
  where e.user_id = '345f2fa2-eedc-481d-ba93-4f186fab0094'
    and lower(e.name) = lower(v.viejo)
@@ -107,7 +113,7 @@ from (values
   ('Pull-over con cuerda en polea',                           'Espalda'),
   -- Brazo
   ('Extensión de codo en polea alta con barra',               'Tríceps'),
-  ('Tríceps katana en polea (neutro)',                        'Tríceps'),
+  ('Extensión unilateral de tríceps en polea baja (neutro)',  'Tríceps'),
   ('Extensión de tríceps en polea alta (overhead) con cuerda','Tríceps'),
   ('Curl de bíceps predicador en máquina',                    'Bíceps'),
   ('Curl de bíceps con polea (barra)',                        'Bíceps'),
@@ -152,7 +158,7 @@ from (values
   (2, 3, 'Press militar con mancuernas en banco inclinado',         3, '11',      150, null,    'Última serie en drop set'),
   (2, 4, 'Elevaciones laterales con mancuernas',                    3, '11',      120, null,    'Última serie en drop set'),
   (2, 5, 'Extensión de codo en polea alta con barra',               4, '11',      120, null,    'Última serie en drop set'),
-  (2, 6, 'Tríceps katana en polea (neutro)',                        3, '11/lado',  90, null,    'Unilateral · 30 s entre lados'),
+  (2, 6, 'Extensión unilateral de tríceps en polea baja (neutro)',  3, '11/lado',  90, null,    'Unilateral · 30 s entre lados'),
   -- ── MIÉRCOLES · TORSO JALONES ──
   (3, 0, 'Pull down (neutro) en polea',                             3, '11',      150, '1-0-2', null),
   (3, 1, 'Remo (neutro) en máquina',                                3, '11',      150, '1-1-2', 'Última serie en drop set'),
@@ -274,7 +280,8 @@ begin
        'Aperturas de pecho con polea alta de pie','Press de pecho en máquina',
        'Elevaciones frontales con cuerda en polea baja (de pie)',
        'Rear delt unilateral en polea','Face Pull','Lat Pulldown',
-       'Pull-over con cuerda en polea','Tríceps katana en polea (neutro)',
+       'Pull-over con cuerda en polea',
+       'Extensión unilateral de tríceps en polea baja (neutro)',
        'Extensión de tríceps en polea alta (overhead) con cuerda',
        'Curl de bíceps predicador en máquina','Curl de bíceps con polea (barra)',
        'Curl bayesian en polea','Curl de muñeca sentado con barra EZ'
