@@ -372,6 +372,8 @@ export type ExerciseStatsRow = {
     volume: number;
     rpe: number | null;
     sets: number;
+    /** Minutos de esa sesión; null fuera de los ejercicios de tiempo. */
+    duration: number | null;
   }[];
   /** Para que la tarjeta sepa si decir kilos o minutos. */
   tracking_mode: TrackingMode;

@@ -29,6 +29,7 @@ function mapExerciseStats(rows: ExerciseStatsRow[]): ExerciseStat[] {
     exerciseId: row.exercise_id,
     name: row.name,
     muscleGroup: row.muscle_group,
+    trackingMode: row.tracking_mode,
     sessions: num(row.sessions),
     sets: num(row.sets),
     volume: num(row.volume),
@@ -40,6 +41,7 @@ function mapExerciseStats(rows: ExerciseStatsRow[]): ExerciseStat[] {
     maxWeight: num(row.max_weight),
     bestE1rm: num(row.best_e1rm),
     prDate: row.pr_date,
+    durationMin: num(row.duration_min),
     recent: (row.recent ?? []).map((point) => ({
       date: point.date,
       weight: num(point.weight),
@@ -48,6 +50,7 @@ function mapExerciseStats(rows: ExerciseStatsRow[]): ExerciseStat[] {
       volume: num(point.volume),
       rpe: maybeNum(point.rpe),
       sets: num(point.sets),
+      durationMin: num(point.duration),
     })),
   }));
 }

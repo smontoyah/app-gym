@@ -41,6 +41,9 @@ function sessionDelta(
 /** Series, volumen y 1RM de una sesión, omitiendo lo que no aplica sin carga. */
 function sessionSub(session: SessionPoint): string {
   const parts = [plural(session.sets, 'serie', 'series')];
+  // En un ejercicio de tiempo, los minutos ocupan el lugar del volumen: el
+  // volumen y el 1RM son null y se omitirían igual, dejando el renglón pelado.
+  if (session.durationMin > 0) parts.push(`${session.durationMin} min`);
   if (session.volume > 0) parts.push(formatVolume(session.volume));
   if (session.e1rm > 0) parts.push(`1RM est. ${formatKg(session.e1rm)}`);
   return parts.join(' · ');
@@ -49,8 +52,9 @@ function sessionSub(session: SessionPoint): string {
 type Figure = { label: string; value: string; hint: string };
 
 /**
- * Tres cifras con carga; dos sin ella. Un «récord de 0 kg» en los abdominales
- * es exactamente el tipo de dato que hace que la pantalla no sirva para nada.
+ * Tres cifras con carga; dos sin ella; tres en los de tiempo. Un «récord de
+ * 0 kg» en los abdominales es exactamente el tipo de dato que hace que la
+ * pantalla no sirva para nada, y lo mismo valdría para una caminadora.
  */
 function buildFigures(stat: ExerciseStat, metric: ProgressMetric): Figure[] {
   if (metric === 'e1rm') {
@@ -70,6 +74,29 @@ function buildFigures(stat: ExerciseStat, metric: ProgressMetric): Figure[] {
         value: `${formatKg(stat.bestE1rm)} kg`,
         hint: formatShort(stat.prDate),
       },
+    ];
+  }
+
+  if (metric === 'duration') {
+    const ultima = {
+      label: 'Última',
+      value: `${stat.recent[0]?.durationMin ?? 0} min`,
+      hint: formatShort(stat.lastDate),
+    };
+    // Acá el total del período sí dice algo —son los minutos acumulados de
+    // cardio— cosa que el volumen de una caminadora no diría.
+    const total = {
+      label: 'Total',
+      value: `${Math.round(stat.durationMin)} min`,
+      hint: plural(stat.sessions, 'sesión', 'sesiones'),
+    };
+    if (stat.recent.length === 0) return [ultima, total];
+
+    const longest = stat.recent.reduce((top, p) => (p.durationMin > top.durationMin ? p : top));
+    return [
+      ultima,
+      total,
+      { label: 'Más larga', value: `${longest.durationMin} min`, hint: formatShort(longest.date) },
     ];
   }
 

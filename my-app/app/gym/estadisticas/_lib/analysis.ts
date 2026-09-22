@@ -11,20 +11,32 @@ import type { ExerciseStat, SessionPoint, StaleStat } from './types';
  *
  * Los ejercicios sin carga (abdominales, extensión de columna) tienen e1RM 0 en
  * todas sus sesiones: ahí el único progreso que existe son las repeticiones.
+ *
+ * En los de tiempo no hay ni una cosa ni la otra: reps y peso son null, así que
+ * graficar cualquiera de los dos daría una línea plana en el piso — peor que no
+ * mostrar nada, porque parece un dato. Ahí el progreso son los minutos.
  */
-export type ProgressMetric = 'e1rm' | 'reps';
+export type ProgressMetric = 'e1rm' | 'reps' | 'duration';
 
 export const METRIC_LABEL: Record<ProgressMetric, string> = {
   e1rm: '1RM est.',
   reps: 'reps',
+  duration: 'min',
 };
 
 export function progressMetric(stat: ExerciseStat): ProgressMetric {
+  // El modo manda sobre el dato: un ejercicio de tiempo se mide en minutos
+  // aunque por lo que sea tenga un e1RM viejo colgando del historial.
+  if (stat.trackingMode === 'tiempo') return 'duration';
   return stat.bestE1rm > 0 ? 'e1rm' : 'reps';
 }
 
 export function metricValue(point: SessionPoint, metric: ProgressMetric): number {
-  return metric === 'e1rm' ? point.e1rm : point.reps;
+  switch (metric) {
+    case 'e1rm': return point.e1rm;
+    case 'reps': return point.reps;
+    case 'duration': return point.durationMin;
+  }
 }
 
 export type Trend = {

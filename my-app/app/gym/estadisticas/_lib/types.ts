@@ -1,3 +1,5 @@
+import type { TrackingMode } from '@/types/database';
+
 export type SessionPoint = {
   date: string;
   weight: number;
@@ -7,12 +9,16 @@ export type SessionPoint = {
   volume: number;
   rpe: number | null;
   sets: number;
+  /** Minutos de la sesión. 0 fuera de los ejercicios de tiempo. */
+  durationMin: number;
 };
 
 export type ExerciseStat = {
   exerciseId: string;
   name: string;
   muscleGroup: string;
+  /** Decide si la tarjeta habla de kilos, de reps o de minutos. */
+  trackingMode: TrackingMode;
   /** Del rango consultado. */
   sessions: number;
   sets: number;
@@ -26,6 +32,8 @@ export type ExerciseStat = {
   maxWeight: number;
   bestE1rm: number;
   prDate: string;
+  /** Minutos del rango. 0 fuera de los ejercicios de tiempo. */
+  durationMin: number;
   /** Sesiones del rango, de la más reciente a la más antigua. */
   recent: SessionPoint[];
 };
