@@ -470,8 +470,9 @@ export type PreviousSetRow = {
   exercise_id: string;
   workout_date: string;
   set_number: number;
-  reps: number;
-  weight: number;
+  reps: number | null;
+  weight: number | null;
+  duration_seconds: number | null;
   rpe: number | null;
 };
 

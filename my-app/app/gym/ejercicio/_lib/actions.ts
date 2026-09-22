@@ -2,7 +2,15 @@ import { supabase } from '@/lib/supabase';
 import { currentUserId } from '@/lib/auth-helpers';
 import { dayOfWeek } from '@/lib/date';
 import { formatWeight, fromKg, labelWeight, parseWeight, toKg, type WeightUnit } from '@/lib/units';
-import type { PreviousSetRow, RoutineWithExercise } from '@/types/database';
+import {
+  formatMinutes,
+  MAX_DURATION_SECONDS,
+  parseMinutes,
+  usesDuration,
+  usesReps,
+  usesWeight,
+} from '@/lib/tracking-mode';
+import type { PreviousSetRow, RoutineWithExercise, TrackingMode } from '@/types/database';
 import { loadWeightUnits } from './unit-prefs';
 import type {
   CardioEntry,
@@ -62,10 +70,15 @@ function buildSuggestion(
 ): LoadSuggestion | undefined {
   if (previous.length === 0 || targetReps === null) return undefined;
 
-  const topWeight = Math.max(...previous.map((p) => Number(p.weight)));
+  // Quien llama ya filtró por modo 'carga', pero las columnas son nullable: sin
+  // este piso, un null se volvería NaN y la sugerencia diría «subí a NaN kg».
+  const weights = previous.map((p) => Number(p.weight)).filter((w) => Number.isFinite(w));
+  if (weights.length === 0) return undefined;
+
+  const topWeight = Math.max(...weights);
   if (!Number.isFinite(topWeight) || topWeight <= 0) return undefined;
 
-  const hitAllReps = previous.every((p) => p.reps >= targetReps);
+  const hitAllReps = previous.every((p) => p.reps !== null && p.reps >= targetReps);
   const rpes = previous.map((p) => p.rpe).filter((r): r is number => r !== null);
   const avgRpe = rpes.length > 0 ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
   const rpeUnderTarget = rpeTarget === null || avgRpe === null || avgRpe <= rpeTarget;
@@ -205,19 +218,33 @@ export async function fetchDayWorkout(
     const weightUnit = unitByExercise[routine.exercise_id] ?? 'kg';
     const inUnit = (kg: number) => formatWeight(fromKg(kg, weightUnit));
 
+    const mode = routine.exercises.tracking_mode;
+
     const sets_data: SetLog[] = [];
     for (let n = 1; n <= routine.sets; n++) {
       const saved = savedLogs.find((l) => l.set_number === n);
       const prev = previous.find((p) => p.set_number === n);
-      const referenceKg = saved ? Number(saved.weight) : prev ? Number(prev.weight) : null;
+      // Lo guardado manda sobre la referencia de la vez pasada; si no hay ni
+      // una ni otra, el campo nace vacío. Cada columna se mira por separado
+      // porque ahora pueden venir en null según cómo se mida el ejercicio.
+      const source = saved ?? prev ?? null;
+      const referenceKg = source?.weight != null ? Number(source.weight) : null;
+      const referenceSecs = source?.duration_seconds ?? null;
+
       sets_data.push({
         set_number: n,
-        reps: saved ? String(saved.reps) : prev ? String(prev.reps) : '',
+        reps: source?.reps != null ? String(source.reps) : '',
         weight: referenceKg !== null ? inUnit(referenceKg) : '',
+        duration: referenceSecs !== null ? formatMinutes(referenceSecs) : '',
         rpe: saved?.rpe != null ? String(saved.rpe) : '',
         saved: !!saved,
         previous: prev
-          ? { weightKg: Number(prev.weight), reps: prev.reps, rpe: prev.rpe }
+          ? {
+              weightKg: prev.weight != null ? Number(prev.weight) : null,
+              reps: prev.reps,
+              durationSeconds: prev.duration_seconds,
+              rpe: prev.rpe,
+            }
           : undefined,
       });
     }
@@ -227,7 +254,8 @@ export async function fetchDayWorkout(
       sets_data,
       weightUnit,
       previousDate: previous[0]?.workout_date,
-      suggestion: buildSuggestion(previous, targetReps, rpeTarget),
+      // La sugerencia es de CARGA: en un ejercicio sin carga no significa nada.
+      suggestion: mode === 'carga' ? buildSuggestion(previous, targetReps, rpeTarget) : undefined,
     };
   });
 
@@ -256,35 +284,67 @@ export async function saveWorkoutSet(params: {
   exerciseId: string;
   dateStr: string;
   setNumber: number;
+  /** Qué campos hay que exigir y cuáles ignorar. */
+  mode: TrackingMode;
   reps: string;
   weight: string;
+  duration: string;
   /** Unidad en la que está escrito `weight`. A la base va siempre en kg. */
   unit: WeightUnit;
   rpe: string;
 }): Promise<SaveSetResult> {
-  const { exerciseId, dateStr, setNumber, reps, weight, unit, rpe } = params;
+  const { exerciseId, dateStr, setNumber, mode, reps, weight, duration, unit, rpe } = params;
 
-  if (!reps || !weight) return { success: false, error: 'Faltan datos', loggedAt: null };
+  /**
+   * Cada modo pide lo suyo y deja el resto en null. Deliberadamente NO se
+   * guardan ceros de relleno: 0 kg es un peso real —así se registran los
+   * ejercicios a peso corporal— y confundir «no aplica» con «sin carga» haría
+   * imposible distinguirlos después.
+   */
+  let parsedReps: number | null = null;
+  let parsedWeight: number | null = null;
+  let parsedDuration: number | null = null;
 
-  const parsedReps = parseInt(reps, 10);
-  const enteredWeight = parseWeight(weight);
-  if (!Number.isFinite(parsedReps) || enteredWeight === null) {
-    return { success: false, error: 'Valores inválidos', loggedAt: null };
+  if (usesReps(mode)) {
+    if (!reps) return { success: false, error: 'Faltan las repeticiones', loggedAt: null };
+    parsedReps = parseInt(reps, 10);
+    if (!Number.isFinite(parsedReps)) {
+      return { success: false, error: 'Repeticiones inválidas', loggedAt: null };
+    }
+    if (parsedReps < 1 || parsedReps > MAX_REPS) {
+      return {
+        success: false,
+        error: `Las repeticiones deben estar entre 1 y ${MAX_REPS}`,
+        loggedAt: null,
+      };
+    }
   }
-  if (parsedReps < 1 || parsedReps > MAX_REPS) {
-    return {
-      success: false,
-      error: `Las repeticiones deben estar entre 1 y ${MAX_REPS}`,
-      loggedAt: null,
-    };
+
+  if (usesWeight(mode)) {
+    if (!weight) return { success: false, error: 'Falta el peso', loggedAt: null };
+    const enteredWeight = parseWeight(weight);
+    if (enteredWeight === null) {
+      return { success: false, error: 'Peso inválido', loggedAt: null };
+    }
+    parsedWeight = toKg(enteredWeight, unit);
+    if (parsedWeight > MAX_WEIGHT_KG) {
+      return {
+        success: false,
+        error: `La carga no puede pasar de ${labelWeight(MAX_WEIGHT_KG, unit)}`,
+        loggedAt: null,
+      };
+    }
   }
-  const parsedWeight = toKg(enteredWeight, unit);
-  if (parsedWeight > MAX_WEIGHT_KG) {
-    return {
-      success: false,
-      error: `La carga no puede pasar de ${labelWeight(MAX_WEIGHT_KG, unit)}`,
-      loggedAt: null,
-    };
+
+  if (usesDuration(mode)) {
+    parsedDuration = parseMinutes(duration);
+    if (parsedDuration === null) {
+      return {
+        success: false,
+        error: `Escribí los minutos, hasta ${MAX_DURATION_SECONDS / 60}`,
+        loggedAt: null,
+      };
+    }
   }
 
   const parsedRpe = rpe ? parseFloat(rpe) : NaN;
@@ -305,6 +365,7 @@ export async function saveWorkoutSet(params: {
         set_number: setNumber,
         reps: parsedReps,
         weight: parsedWeight,
+        duration_seconds: parsedDuration,
         rpe: rpe ? parsedRpe : null,
       },
       // El usuario va en el conflicto: el índice sin él sólo funciona mientras

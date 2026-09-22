@@ -158,14 +158,22 @@ export default function WorkoutScreen() {
 
   const handleSaveSets = useCallback(
     async (exerciseId: string, sets: SetInput[], unit: WeightUnit) => {
+      // El modo sale del ejercicio, no del input: es quien decide qué columna
+      // recibe valor y cuál queda en null.
+      const mode =
+        flatten(workout.blocks).find((e) => e.exercise_id === exerciseId)?.exercises
+          .tracking_mode ?? 'carga';
+
       const results = await Promise.all(
         sets.map((st) =>
           saveWorkoutSet({
             exerciseId,
             dateStr,
             setNumber: st.setNumber,
+            mode,
             reps: st.reps,
             weight: st.weight,
+            duration: st.duration,
             unit,
             rpe: st.rpe,
           })
@@ -201,7 +209,10 @@ export default function WorkoutScreen() {
       }));
       setLastSaved({ exerciseId, at: Date.now() });
     },
-    [dateStr]
+    // `workout.blocks` va en las dependencias porque de ahí sale el modo: sin
+    // él, el closure se queda con los bloques del primer render y un ejercicio
+    // de tiempo se guardaría como si fuera de carga.
+    [dateStr, workout.blocks]
   );
 
   const handleSaveSet = useCallback(

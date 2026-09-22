@@ -12,9 +12,19 @@ export type SetLog = {
   /** Lo que se ve en el input: está en `weightUnit` del ejercicio, no en kg. */
   weight: string;
   rpe: string;
+  /** Minutos tal como se escriben. Solo en `tracking_mode = 'tiempo'`. */
+  duration: string;
   saved: boolean;
-  /** Referencia de la sesión previa. En kg, que es como se guarda. */
-  previous?: { weightKg: number; reps: number; rpe: number | null };
+  /**
+   * Referencia de la sesión previa. El peso en kg, que es como se guarda.
+   * Cada campo puede faltar: depende de cómo se mida el ejercicio.
+   */
+  previous?: {
+    weightKg: number | null;
+    reps: number | null;
+    durationSeconds: number | null;
+    rpe: number | null;
+  };
 };
 
 /** Datos de una serie tal como salen de los inputs, sin convertir todavía. */
@@ -22,6 +32,8 @@ export type SetInput = {
   setNumber: number;
   reps: string;
   weight: string;
+  /** Minutos escritos. Vacío fuera de los ejercicios de tiempo. */
+  duration: string;
   rpe: string;
 };
 

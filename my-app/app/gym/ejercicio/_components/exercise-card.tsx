@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/use-theme';
 import { labelWeight, type WeightUnit } from '@/lib/units';
+import { usesDuration, usesWeight } from '@/lib/tracking-mode';
 import { ExerciseGuideModal } from './exercise-guide-modal';
 import { SetRow, type SetField } from './set-row';
 import { WeightUnitToggle } from './weight-unit-toggle';
@@ -47,14 +48,24 @@ export const ExerciseCard = memo(function ExerciseCard({
   const s = useMemo(() => createStyles(colors), [colors]);
   const [guideOpen, setGuideOpen] = useState(false);
 
-  const { name, muscle_group, image_url, instructions } = exercise.exercises;
+  const { name, muscle_group, image_url, instructions, tracking_mode } = exercise.exercises;
+  // El toggle kg/lb y la sugerencia de carga no significan nada sin carga.
+  const hasLoad = usesWeight(tracking_mode);
   // Un ejercicio sin vincular al dataset —o vinculado a uno que el dataset no
   // ilustra— sigue siendo un ejercicio normal: simplemente no abre la guía.
   const hasGuide = image_url !== null || (instructions?.length ?? 0) > 0;
 
+  // Qué cuenta como «tiene datos» depende del modo: exigirle un peso a una
+  // caminadora dejaba el botón de guardar todas escondido para siempre.
   const unsavedWithData = useMemo(
-    () => exercise.sets_data.filter((st) => !st.saved && st.reps !== '' && st.weight !== ''),
-    [exercise.sets_data]
+    () =>
+      exercise.sets_data.filter((st) => {
+        if (st.saved) return false;
+        if (tracking_mode === 'tiempo') return st.duration !== '';
+        if (tracking_mode === 'reps') return st.reps !== '';
+        return st.reps !== '' && st.weight !== '';
+      }),
+    [exercise.sets_data, tracking_mode]
   );
 
   const done = exercise.sets_data.length > 0 && exercise.sets_data.every((st) => st.saved);
@@ -123,17 +134,25 @@ export const ExerciseCard = memo(function ExerciseCard({
       </View>
 
       {exercise.notes && <Text style={s.notes}>{exercise.notes}</Text>}
-      {exercise.suggestion && !done && (
+      {hasLoad && exercise.suggestion && !done && (
         <Text style={s.suggestion}>{suggestionText(exercise.suggestion, exercise.weightUnit)}</Text>
       )}
 
       <View style={s.setsHeader}>
         <Text style={[s.label, s.labelSet]}>#</Text>
-        <Text style={s.label}>Reps</Text>
-        <WeightUnitToggle
-          unit={exercise.weightUnit}
-          onChange={(unit) => onUnitChange(exercise.exercise_id, unit)}
-        />
+        {/* Los encabezados siguen a los inputs que pinta SetRow: si no, una
+            caminadora quedaba con la columna rotulada «Reps». */}
+        {usesDuration(tracking_mode) ? (
+          <Text style={[s.label, s.labelWide]}>Minutos</Text>
+        ) : (
+          <Text style={s.label}>Reps</Text>
+        )}
+        {hasLoad && (
+          <WeightUnitToggle
+            unit={exercise.weightUnit}
+            onChange={(unit) => onUnitChange(exercise.exercise_id, unit)}
+          />
+        )}
         <Text style={[s.label, s.labelRpe]}>RPE</Text>
         <View style={s.labelSpacer} />
       </View>
@@ -145,6 +164,7 @@ export const ExerciseCard = memo(function ExerciseCard({
           setIndex={setIndex}
           exerciseId={exercise.exercise_id}
           unit={exercise.weightUnit}
+          mode={tracking_mode}
           targetReps={exercise.target_reps}
           targetRpe={targetRpe}
           onValueChange={onSetValueChange}
@@ -162,6 +182,7 @@ export const ExerciseCard = memo(function ExerciseCard({
                 setNumber: st.set_number,
                 reps: st.reps,
                 weight: st.weight,
+                duration: st.duration,
                 rpe: st.rpe,
               })),
               exercise.weightUnit
@@ -218,6 +239,8 @@ const createStyles = (c: AppColorScheme) =>
     label: { flex: 1, color: c.textMuted, fontSize: 11, textAlign: 'center' },
     labelSet: { width: 18, flex: 0 },
     labelRpe: { flex: 0.8 },
+    /** Acompaña el ancho de `durationWrap` en SetRow, que lleva input + «min». */
+    labelWide: { flex: 2 },
     labelSpacer: { width: 38 },
     saveAllBtn: { marginTop: 6, backgroundColor: c.accent, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
     saveAllText: { color: c.accentText, fontSize: 14, fontWeight: '700' },

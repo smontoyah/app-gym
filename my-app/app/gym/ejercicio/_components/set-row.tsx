@@ -2,10 +2,12 @@ import { memo, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { formatWeight, labelWeight, parseWeight, toKg, type WeightUnit } from '@/lib/units';
+import { labelDuration, usesDuration, usesReps, usesWeight } from '@/lib/tracking-mode';
+import type { TrackingMode } from '@/types/database';
 import type { SetInput, SetLog } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
-export type SetField = 'reps' | 'weight' | 'rpe';
+export type SetField = 'reps' | 'weight' | 'rpe' | 'duration';
 
 type SetRowProps = {
   set: SetLog;
@@ -13,6 +15,8 @@ type SetRowProps = {
   exerciseId: string;
   /** Unidad en la que está escrito el peso de esta fila. */
   unit: WeightUnit;
+  /** Qué inputs pinta la fila. */
+  mode: TrackingMode;
   /** Repeticiones objetivo del plan, como placeholder. */
   targetReps: string | null;
   /** RPE objetivo de la fase, como placeholder. */
@@ -26,6 +30,7 @@ export const SetRow = memo(function SetRow({
   setIndex,
   exerciseId,
   unit,
+  mode,
   targetReps,
   targetRpe,
   onValueChange,
@@ -41,40 +46,66 @@ export const SetRow = memo(function SetRow({
   const hint = useMemo(() => {
     const parts: string[] = [];
 
-    if (unit === 'lb') {
+    if (usesWeight(mode) && unit === 'lb') {
       const entered = parseWeight(set.weight);
       if (entered !== null) parts.push(`= ${formatWeight(toKg(entered, 'lb'))} kg`);
     }
 
     if (set.previous && !set.saved) {
-      const { weightKg, reps, rpe } = set.previous;
+      const { weightKg, reps, durationSeconds, rpe } = set.previous;
       const rpeLabel = rpe !== null ? ` @ RPE ${rpe}` : '';
-      parts.push(`anterior ${labelWeight(weightKg, unit)} × ${reps}${rpeLabel}`);
+      // Cada modo tiene su propia referencia útil frente a la máquina.
+      if (usesDuration(mode) && durationSeconds !== null) {
+        parts.push(`anterior ${labelDuration(durationSeconds)}${rpeLabel}`);
+      } else if (usesWeight(mode) && weightKg !== null && reps !== null) {
+        parts.push(`anterior ${labelWeight(weightKg, unit)} × ${reps}${rpeLabel}`);
+      } else if (reps !== null) {
+        parts.push(`anterior ${reps} reps${rpeLabel}`);
+      }
     }
 
     return parts.join(' · ');
-  }, [unit, set.weight, set.previous, set.saved]);
+  }, [mode, unit, set.weight, set.previous, set.saved]);
 
   return (
     <>
       <View style={s.row}>
         <Text style={s.setNumber}>{set.set_number}</Text>
-        <TextInput
-          style={[s.input, set.saved && s.inputSaved]}
-          keyboardType="numeric"
-          placeholder={targetReps ?? '0'}
-          placeholderTextColor={colors.placeholder}
-          value={set.reps}
-          onChangeText={(v) => onValueChange(exerciseId, setIndex, 'reps', v)}
-        />
-        <TextInput
-          style={[s.input, set.saved && s.inputSaved]}
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={colors.placeholder}
-          value={set.weight}
-          onChangeText={(v) => onValueChange(exerciseId, setIndex, 'weight', v)}
-        />
+        {usesReps(mode) && (
+          <TextInput
+            style={[s.input, set.saved && s.inputSaved]}
+            keyboardType="numeric"
+            placeholder={targetReps ?? '0'}
+            placeholderTextColor={colors.placeholder}
+            value={set.reps}
+            onChangeText={(v) => onValueChange(exerciseId, setIndex, 'reps', v)}
+          />
+        )}
+        {usesWeight(mode) && (
+          <TextInput
+            style={[s.input, set.saved && s.inputSaved]}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor={colors.placeholder}
+            value={set.weight}
+            onChangeText={(v) => onValueChange(exerciseId, setIndex, 'weight', v)}
+          />
+        )}
+        {usesDuration(mode) && (
+          <View style={s.durationWrap}>
+            <TextInput
+              style={[s.input, s.durationInput, set.saved && s.inputSaved]}
+              keyboardType="numeric"
+              placeholder={targetReps ?? '0'}
+              placeholderTextColor={colors.placeholder}
+              value={set.duration}
+              onChangeText={(v) => onValueChange(exerciseId, setIndex, 'duration', v)}
+            />
+            {/* La unidad va a la vista: sin ella, «45» en un campo suelto se
+                confunde con repeticiones. */}
+            <Text style={s.durationUnit}>min</Text>
+          </View>
+        )}
         <TextInput
           style={[s.input, s.rpeInput, set.saved && s.inputSaved]}
           keyboardType="numeric"
@@ -88,7 +119,13 @@ export const SetRow = memo(function SetRow({
           onPress={() =>
             onSave(
               exerciseId,
-              { setNumber: set.set_number, reps: set.reps, weight: set.weight, rpe: set.rpe },
+              {
+                setNumber: set.set_number,
+                reps: set.reps,
+                weight: set.weight,
+                duration: set.duration,
+                rpe: set.rpe,
+              },
               unit
             )
           }
@@ -116,6 +153,9 @@ const createStyles = (c: AppColorScheme) =>
       paddingHorizontal: 2,
     },
     rpeInput: { flex: 0.8 },
+    durationWrap: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 6 },
+    durationInput: { flex: 1 },
+    durationUnit: { color: c.textSecondary, fontSize: 13 },
     inputSaved: { backgroundColor: c.successBg },
     saveBtn: {
       width: 38,
