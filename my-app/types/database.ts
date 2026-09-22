@@ -314,15 +314,61 @@ export type NutritionLogMacros = {
   sodium_mg: number | null;
 };
 
-/** Meta diaria de macros. Una fila por usuario, se edita a mano. */
+/** Cuál de los dos juegos de objetivos rige un día. */
+export type GoalProfile = 'normal' | 'ciclado';
+
+/**
+ * Meta diaria. Una fila por usuario y perfil, se edita a mano.
+ *
+ * Los macros van en gramos por kilo de peso corporal porque es como se
+ * prescriben: 170 g de proteína son 2,2 g/kg a 77 kg y 2,4 a 71, y lo que no
+ * cambia entre esos dos días es el 2,2. Las calorías y la fibra no siguen esa
+ * regla — son números absolutos puestos a mano.
+ */
 export type NutritionGoals = {
   user_id: string;
+  profile: GoalProfile;
+  energy_kcal: number | null;
+  protein_g_kg: number | null;
+  carbs_g_kg: number | null;
+  fat_g_kg: number | null;
+  fiber_g: number | null;
+  updated_at: string;
+};
+
+/** Fila de `nutrition_goals_current`: el mismo objetivo ya resuelto en gramos. */
+export type NutritionGoalsResolved = {
+  user_id: string;
+  profile: GoalProfile;
+  /** El pesaje con el que se resolvió; null si el usuario nunca se pesó. */
+  weight_kg: number | null;
   energy_kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
   fiber_g: number | null;
   updated_at: string;
+};
+
+/** Un día marcado como de ciclado. Sin fila = día normal. */
+export type NutritionDay = {
+  user_id: string;
+  logged_on: string;
+  goal_profile: GoalProfile;
+  created_at: string;
+};
+
+/** Fila de `nutrition_day_goals`: qué objetivo le tocaba a ese día. */
+export type NutritionDayGoal = {
+  day: string;
+  profile: GoalProfile;
+  /** El peso vigente ESE día, no el de hoy. */
+  weight_kg: number | null;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
 };
 
 /**
@@ -846,19 +892,40 @@ export type Database = {
         Row: NutritionGoals;
         Insert: {
           user_id: string;
+          profile?: GoalProfile;
           energy_kcal?: number | null;
-          protein_g?: number | null;
-          carbs_g?: number | null;
-          fat_g?: number | null;
+          protein_g_kg?: number | null;
+          carbs_g_kg?: number | null;
+          fat_g_kg?: number | null;
           fiber_g?: number | null;
         };
         Update: {
+          profile?: GoalProfile;
           energy_kcal?: number | null;
-          protein_g?: number | null;
-          carbs_g?: number | null;
-          fat_g?: number | null;
+          protein_g_kg?: number | null;
+          carbs_g_kg?: number | null;
+          fat_g_kg?: number | null;
           fiber_g?: number | null;
         };
+        Relationships: [];
+      };
+      nutrition_days: {
+        Row: NutritionDay;
+        Insert: {
+          user_id: string;
+          logged_on: string;
+          goal_profile: GoalProfile;
+          created_at?: string;
+        };
+        Update: {
+          goal_profile?: GoalProfile;
+        };
+        Relationships: [];
+      };
+      nutrition_goals_current: {
+        Row: NutritionGoalsResolved;
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       body_weight_logs: {
