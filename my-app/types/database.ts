@@ -1,8 +1,20 @@
+/**
+ * Cómo se mide un ejercicio, que no es lo mismo que qué trabaja.
+ *
+ * Es ortogonal al grupo muscular a propósito: una plancha es Core y se mide en
+ * tiempo, una caminadora es Cardio y también. Atarlo a la categoría habría
+ * dejado la plancha sin dónde caer.
+ */
+export type TrackingMode = 'carga' | 'reps' | 'tiempo';
+
 export type Exercise = {
   id: string;
   user_id: string;
   name: string;
+  /** Grupo muscular, o 'Cardio', que no es un músculo pero comparte columna. */
   muscle_group: string;
+  /** Qué campos pide cada serie: reps+peso, solo reps, o minutos. */
+  tracking_mode: TrackingMode;
   /**
    * Ilustración animada del movimiento (WebP 180×180 en el bucket público
    * `exercises`). Null mientras el ejercicio no esté vinculado al dataset.
@@ -44,8 +56,16 @@ export type WorkoutLog = {
   exercise_id: string;
   workout_date: string;
   set_number: number;
-  reps: number;
-  weight: number;
+  /** null en los ejercicios de tiempo. */
+  reps: number | null;
+  /**
+   * null en los de tiempo y en los de solo reps. NO se usa 0 para «no aplica»:
+   * 0 kg es un peso real —así se registran los ejercicios a peso corporal— y
+   * confundir los dos ceros ensuciaría cualquier promedio.
+   */
+  weight: number | null;
+  /** Segundos de la serie. Solo en `tracking_mode = 'tiempo'`. */
+  duration_seconds: number | null;
   /** Esfuerzo percibido 1-10. La fase se define por RPE, no solo por carga. */
   rpe: number | null;
   /** Primer guardado de esta serie: es la marca que delimita la jornada. */
@@ -496,6 +516,7 @@ export type Database = {
           user_id: string;
           name: string;
           muscle_group: string;
+          tracking_mode?: TrackingMode;
           image_url?: string | null;
           dataset_id?: string | null;
           instructions?: string[] | null;
@@ -506,6 +527,7 @@ export type Database = {
           user_id?: string;
           name?: string;
           muscle_group?: string;
+          tracking_mode?: TrackingMode;
           image_url?: string | null;
           dataset_id?: string | null;
           instructions?: string[] | null;
@@ -561,8 +583,9 @@ export type Database = {
           exercise_id: string;
           workout_date?: string;
           set_number: number;
-          reps: number;
-          weight: number;
+          reps?: number | null;
+          weight?: number | null;
+          duration_seconds?: number | null;
           rpe?: number | null;
           created_at?: string;
         };
@@ -572,8 +595,9 @@ export type Database = {
           exercise_id?: string;
           workout_date?: string;
           set_number?: number;
-          reps?: number;
-          weight?: number;
+          reps?: number | null;
+          weight?: number | null;
+          duration_seconds?: number | null;
           rpe?: number | null;
           created_at?: string;
         };
