@@ -89,7 +89,12 @@ with d as (
     and m.logged_on between :'desde' and :'hasta'
     and m.logged_on < current_date
   group by m.logged_on
-), g as (select * from nutrition_goals where user_id = :'uid')
+-- La vista resuelve los g/kg contra el último pesaje: desde 2026-09-21 la
+-- tabla guarda ratios, no gramos. Los nombres de columna no cambian.
+-- 'normal' porque es contra lo habitual que se mide la adherencia; qué días
+-- fueron de ciclado está en nutrition_days.
+), g as (select * from nutrition_goals_current
+          where user_id = :'uid' and profile = 'normal')
 select count(*) filter (where tiempos = 4) as dias_completos,
        count(*) filter (where tiempos < 4) as dias_con_hueco,
        round(avg(kcal) filter (where tiempos = 4)) as kcal,
@@ -102,6 +107,8 @@ select count(*) filter (where tiempos = 4) as dias_completos,
        round(avg(kcal))                                as kcal_todos_los_dias
 from d, g group by g.energy_kcal, g.protein_g;
 -- Recordatorio: nutrition_goals es una meta puesta a mano, NO el gasto medido.
+-- Los macros se guardan en g/kg y se resuelven con el peso; kcal y fibra son
+-- absolutas. Un cambio de peso mueve el objetivo sin que nadie lo edite.
 
 -- B3. Aporte por tiempo de comida (promedio por día en que ese tiempo existe)
 select m.meal,

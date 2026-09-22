@@ -92,10 +92,11 @@ Lo mismo aplica a `training_phases`: describe el bloque vigente
 | `nutrition_logs` | Un renglón por alimento comido. `quantity_g` **siempre** en gramos de la forma base del producto | `product_id` y `recipe_id` son ambos nullable; un renglón sin ninguno suma 0 en silencio |
 | `nutrition_log_macros` | **Úsala.** Vista que resuelve macros por renglón, productos y recetas | — |
 | `food_products` | Catálogo. Macros **por 100 g** de la forma que declara `base_state` | `verified` se pone en `true` cada vez que se guarda el formulario: **no sirve como marca de "revisado"**. Para marcar un estimado, usa `note` en el log |
-| `nutrition_goals` | Meta vigente (una fila) | Es una meta *puesta a mano*, no un gasto medido. **Los 2.000 kcal son deliberados y correctos — no proponer subirlos a los 2.399 de Ciro.** Ver §7 |
+| `nutrition_goals` | Meta vigente. **Una fila por perfil** (`normal` / `ciclado`), con los macros en **g/kg** | No la leas directo: usa la vista `nutrition_goals_current`, que resuelve los g/kg contra el último pesaje y devuelve gramos con los nombres de siempre. Es una meta *puesta a mano*, no un gasto medido. **Los 2.000 kcal son deliberados y correctos — no proponer subirlos a los 2.399 de Ciro.** Ver §7 |
+| `nutrition_days` | Qué días fueron de ciclado de carbos | **Sin fila = día normal**, que es la mayoría. Un día de ciclado se compara contra el perfil `ciclado`, no contra el habitual |
 | `body_weight_logs` | Peso. `measured_at` es timestamptz | El árbitro de todo. Ver §5 |
-| `workout_logs` | Una fila **por serie**: `reps`, `weight`, `rpe` | `rpe` puede ser null en parte de las series; es normal, no es pérdida de datos |
-| `exercises` | Catálogo acumulativo, nunca se borra | `instructions` e `image_url` vienen del dataset de referencia |
+| `workout_logs` | Una fila **por serie**: `reps`, `weight`, `duration_seconds`, `rpe` | `rpe` puede ser null en parte de las series; es normal. **`reps` y `weight` son null en los ejercicios de cardio** (`exercises.tracking_mode = 'tiempo'`), que guardan `duration_seconds`. Ojo: un `weight = 0` sí es un dato real — es un ejercicio a peso corporal |
+| `exercises` | Catálogo acumulativo, nunca se borra | `instructions` e `image_url` vienen del dataset de referencia. `tracking_mode` dice cómo se mide: `carga` (reps × peso), `reps` o `tiempo`. `muscle_group = 'Cardio'` **no es un músculo** |
 | `routines`, `cardio_plan`, `training_phases` | Plantilla y prescripción | **No son compromiso.** Ver §2 |
 | `cardio_logs` | Cardio efectivamente anotado | Ver §2 |
 | `recipes`, `recipe_items`, `recipe_nutrition` | Recetas compuestas | Hoy vacías. La vista de macros ya las contempla |
@@ -262,7 +263,8 @@ Toma café con leche (la leche la anota), stevia y agua. Ya se verificó.
   de agarre o reseteo técnico deliberado. No son lo mismo.
 - **RPE > 9 sostenido** a lo largo de un bloque pide descarga.
 - **Volumen**: 10–20 series duras por grupo muscular por semana es el rango
-  productivo. Cuenta por `muscle_group` sobre semanas reales.
+  productivo. Cuenta por `muscle_group` sobre semanas reales, **excluyendo
+  `'Cardio'`**: no es un músculo y sus series no son series de fuerza.
 - Ejercicios que aparecen 1–2 veces no dan para conclusión de progresión. Exige
   ≥3 sesiones.
 

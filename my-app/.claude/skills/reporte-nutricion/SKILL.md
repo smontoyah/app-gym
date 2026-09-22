@@ -53,7 +53,10 @@ where l.logged_on between ':from' and ':to'
 group by l.logged_on order by l.logged_on;
 
 -- B. Meta vigente
-select energy_kcal, protein_g, carbs_g, fat_g, fiber_g from public.nutrition_goals;
+-- La tabla guarda los macros en g/kg; la vista los devuelve ya resueltos
+-- contra el último pesaje, con los mismos nombres de columna de siempre.
+select energy_kcal, protein_g, carbs_g, fat_g, fiber_g, weight_kg
+  from public.nutrition_goals_current where profile = 'normal';
 
 -- C. Promedio por tiempo de comida
 select l.meal,
