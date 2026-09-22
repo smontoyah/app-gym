@@ -373,6 +373,10 @@ export type ExerciseStatsRow = {
     rpe: number | null;
     sets: number;
   }[];
+  /** Para que la tarjeta sepa si decir kilos o minutos. */
+  tracking_mode: TrackingMode;
+  /** Minutos del rango. Solo tiene valor en los ejercicios de tiempo. */
+  duration_min: number | null;
 };
 
 /** Fila devuelta por la función `training_summary`. */
