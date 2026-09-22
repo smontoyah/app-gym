@@ -1,8 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import { currentUserId } from '@/lib/auth-helpers';
-import { GOAL_FIELDS, type GoalField } from './objetivos';
+import {
+  GOAL_FIELDS,
+  resolveGoals,
+  type GoalField,
+  type GoalValues,
+  type ResolvedGoals,
+} from './objetivos';
 import type {
-  FoodState, MealSlot, NutritionGoals, NutritionLogMacros,
+  FoodState, GoalProfile, MealSlot, NutritionGoals, NutritionLogMacros,
 } from '@/types/database';
 
 export const MEALS: MealSlot[] = ['desayuno', 'almuerzo', 'cena', 'snack'];
@@ -62,34 +68,60 @@ export function macrosFor(
   return out;
 }
 
+/**
+ * Todo lo que necesita el diario de un día: lo comido, el perfil que rige y el
+ * objetivo ya resuelto en gramos.
+ *
+ * El objetivo sale resuelto y no crudo a propósito. La pantalla no tiene por
+ * qué saber que la tabla guarda g/kg, y si cada consumidor hiciera la
+ * multiplicación por su cuenta terminarían discrepando por un redondeo.
+ */
 export async function fetchDay(dateStr: string): Promise<{
   entries: NutritionLogMacros[];
   totals: DayTotals;
-  goals: NutritionGoals | null;
+  goals: ResolvedGoals;
+  profile: GoalProfile;
+  /** El pesaje con el que se resolvió. `null` si todavía no hay ninguno. */
+  weightKg: number | null;
   error: string | null;
 }> {
-  const [logsRes, goalsRes] = await Promise.all([
+  const [logsRes, goalsRes, dayRes, weightRes] = await Promise.all([
     supabase
       .from('nutrition_log_macros')
       .select('*')
       .eq('logged_on', dateStr)
       .order('created_at'),
-    // maybeSingle: es normal que todavía no haya objetivo configurado, y con
-    // single() esa ausencia llegaría como error en vez de como null.
-    supabase.from('nutrition_goals').select('*').maybeSingle(),
+    // Sin filtro de perfil: vienen las dos filas y acá se elige la que rige.
+    supabase.from('nutrition_goals').select('*'),
+    // maybeSingle: lo normal es que NO haya fila — eso significa «día normal».
+    supabase.from('nutrition_days').select('*').eq('logged_on', dateStr).maybeSingle(),
+    supabase
+      .from('body_weight_logs')
+      .select('weight_kg')
+      .order('measured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
+  const profile: GoalProfile = dayRes.data?.goal_profile ?? 'normal';
+  const weightKg = weightRes.data ? Number(weightRes.data.weight_kg) : null;
+  const goalRow =
+    ((goalsRes.data ?? []) as NutritionGoals[]).find((g) => g.profile === profile) ?? null;
+  const goals = resolveGoals(goalRow, weightKg);
+
   if (logsRes.error) {
-    return { entries: [], totals: { ...ZERO_TOTALS }, goals: null, error: logsRes.error.message };
+    return {
+      entries: [],
+      totals: { ...ZERO_TOTALS },
+      goals,
+      profile,
+      weightKg,
+      error: logsRes.error.message,
+    };
   }
 
   const entries = (logsRes.data ?? []) as NutritionLogMacros[];
-  return {
-    entries,
-    totals: sumTotals(entries),
-    goals: goalsRes.data ?? null,
-    error: null,
-  };
+  return { entries, totals: sumTotals(entries), goals, profile, weightKg, error: null };
 }
 
 export async function addEntry(params: {
@@ -124,20 +156,71 @@ export async function deleteEntry(id: string): Promise<{ error: string | null }>
   return { error: error?.message ?? null };
 }
 
-export async function fetchGoals(): Promise<{ goals: NutritionGoals | null; error: string | null }> {
-  const { data, error } = await supabase.from('nutrition_goals').select('*').maybeSingle();
-  return { goals: data ?? null, error: error?.message ?? null };
+/** Los dos perfiles y el peso con el que se resuelven, para la pantalla de objetivos. */
+export async function fetchGoals(): Promise<{
+  byProfile: Record<GoalProfile, NutritionGoals | null>;
+  weightKg: number | null;
+  error: string | null;
+}> {
+  const [goalsRes, weightRes] = await Promise.all([
+    supabase.from('nutrition_goals').select('*'),
+    supabase
+      .from('body_weight_logs')
+      .select('weight_kg')
+      .order('measured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const byProfile: Record<GoalProfile, NutritionGoals | null> = { normal: null, ciclado: null };
+  for (const row of (goalsRes.data ?? []) as NutritionGoals[]) byProfile[row.profile] = row;
+
+  return {
+    byProfile,
+    weightKg: weightRes.data ? Number(weightRes.data.weight_kg) : null,
+    error: goalsRes.error?.message ?? null,
+  };
 }
 
 export async function saveGoals(
-  values: Record<GoalField, number | null>
+  profile: GoalProfile,
+  values: GoalValues
 ): Promise<{ error: string | null }> {
   const auth = await currentUserId();
   if (!auth.userId) return { error: auth.error };
 
-  // upsert sobre la PK (user_id): hay una sola fila de objetivo por usuario.
+  // El conflicto va por (user_id, profile), que es la PK nueva. Con el
+  // 'user_id' de antes, guardar el perfil de ciclado pisaría el normal.
   const { error } = await supabase
     .from('nutrition_goals')
-    .upsert({ user_id: auth.userId, ...values }, { onConflict: 'user_id' });
+    .upsert({ user_id: auth.userId, profile, ...values }, { onConflict: 'user_id,profile' });
+  return { error: error?.message ?? null };
+}
+
+/**
+ * Marca (o desmarca) un día como de ciclado.
+ *
+ * Volver a 'normal' BORRA la fila en vez de guardarla: la ausencia es el
+ * default, y así la tabla solo contiene los días que de verdad se salieron de
+ * lo habitual en lugar de una fila por cada día del año.
+ */
+export async function setDayProfile(
+  loggedOn: string,
+  profile: GoalProfile
+): Promise<{ error: string | null }> {
+  const auth = await currentUserId();
+  if (!auth.userId) return { error: auth.error };
+
+  if (profile === 'normal') {
+    const { error } = await supabase.from('nutrition_days').delete().eq('logged_on', loggedOn);
+    return { error: error?.message ?? null };
+  }
+
+  const { error } = await supabase
+    .from('nutrition_days')
+    .upsert(
+      { user_id: auth.userId, logged_on: loggedOn, goal_profile: profile },
+      { onConflict: 'user_id,logged_on' }
+    );
   return { error: error?.message ?? null };
 }

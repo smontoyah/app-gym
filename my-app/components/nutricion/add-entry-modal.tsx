@@ -5,8 +5,9 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { useKeyboardHeight } from '@/hooks/use-keyboard-height';
 import type { AppColorScheme } from '@/constants/theme';
-import type { FoodProduct, FoodState, MealSlot, NutritionGoals, RecipeNutrition } from '@/types/database';
+import type { FoodProduct, FoodState, MealSlot, RecipeNutrition } from '@/types/database';
 import { MEALS, MEAL_LABELS, macrosFor, ZERO_TOTALS, type DayTotals } from '@/lib/nutricion/diario';
+import type { ResolvedGoals } from '@/lib/nutricion/objetivos';
 import { QuantityInput } from '@/components/nutricion/quantity-input';
 import { ImpactPreview } from '@/components/nutricion/impact-preview';
 import {
@@ -33,7 +34,7 @@ type Props = {
   defaultMeal: MealSlot;
   /** Lo que el día ya lleva, para poder simular contra eso. */
   dayTotals: DayTotals | null;
-  goals: NutritionGoals | null;
+  goals: ResolvedGoals;
   onClose: () => void;
   onAdd: (params: {
     pick: Pick;

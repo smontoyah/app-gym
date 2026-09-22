@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
 import type {
-  FoodProduct, FoodState, MealSlot, NutritionGoals, NutritionLogMacros, RecipeNutrition,
+  FoodProduct, FoodState, GoalProfile, MealSlot, NutritionLogMacros, RecipeNutrition,
 } from '@/types/database';
 import { addDays, formatLong, isToday } from '@/lib/date';
 import { useAnchoredDate } from '@/hooks/use-today';
@@ -13,8 +13,10 @@ import { MacroBar } from '@/components/nutricion/macro-bar';
 import { AddEntryModal, type Pick } from '@/components/nutricion/add-entry-modal';
 import {
   MEALS, MEAL_LABELS, GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS,
-  fetchDay, addEntry, deleteEntry, sumTotals, type DayTotals,
+  fetchDay, addEntry, deleteEntry, setDayProfile, sumTotals, type DayTotals,
 } from '@/lib/nutricion/diario';
+import { EMPTY_RESOLVED, PROFILE_LABELS, type ResolvedGoals } from '@/lib/nutricion/objetivos';
+import { formatKg } from '@/lib/nutricion/peso';
 import { fetchProducts } from '@/lib/nutricion/actions';
 import { describeQuantity } from '@/lib/nutricion/coccion';
 import { fetchRecipes } from '@/lib/nutricion/recetas';
@@ -28,7 +30,9 @@ export default function DiarioScreen() {
   const { dateStr: day, setDateStr: setDay } = useAnchoredDate();
   const [entries, setEntries] = useState<NutritionLogMacros[]>([]);
   const [totals, setTotals] = useState<DayTotals | null>(null);
-  const [goals, setGoals] = useState<NutritionGoals | null>(null);
+  const [goals, setGoals] = useState<ResolvedGoals>({ ...EMPTY_RESOLVED });
+  const [profile, setProfile] = useState<GoalProfile>('normal');
+  const [weightKg, setWeightKg] = useState<number | null>(null);
   const [products, setProducts] = useState<FoodProduct[]>([]);
   const [recipes, setRecipes] = useState<RecipeNutrition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +48,8 @@ export default function DiarioScreen() {
     setEntries(dayRes.entries);
     setTotals(dayRes.totals);
     setGoals(dayRes.goals);
+    setProfile(dayRes.profile);
+    setWeightKg(dayRes.weightKg);
     setProducts(prodRes.products);
     setRecipes(recRes.recipes);
     setLoading(false);
@@ -74,6 +80,23 @@ export default function DiarioScreen() {
     else load();
   };
 
+  /**
+   * El switch responde al dedo y después confirma contra la base: esperar la
+   * red para moverlo se siente como que no registró el toque. Si falla, vuelve
+   * a donde estaba y lo dice.
+   */
+  const handleToggleCycle = async (on: boolean) => {
+    const next: GoalProfile = on ? 'ciclado' : 'normal';
+    const before = profile;
+    setProfile(next);
+    const { error } = await setDayProfile(day, next);
+    if (error) {
+      setProfile(before);
+      return Alert.alert('No se pudo cambiar el día', error);
+    }
+    load();
+  };
+
   const confirmDelete = (e: NutritionLogMacros) =>
     Alert.alert('Quitar del diario', `¿Quitar ${e.source_name}?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -88,7 +111,9 @@ export default function DiarioScreen() {
       },
     ]);
 
-  const activeGoals = GOAL_FIELDS.filter((f) => goals?.[f] != null);
+  const activeGoals = GOAL_FIELDS.filter((f) => goals[f] != null);
+  // Sin pesaje, los macros por kilo no se pueden resolver y sus barras faltan.
+  const missingForWeight = weightKg === null && activeGoals.length < GOAL_FIELDS.length;
   const catalogIsEmpty = products.length === 0 && recipes.length === 0;
 
   return (
@@ -110,6 +135,22 @@ export default function DiarioScreen() {
           </TouchableOpacity>
         </View>
 
+        <View style={s.cycleRow}>
+          <View style={s.cycleInfo}>
+            <Text style={s.cycleTitle}>{PROFILE_LABELS.ciclado}</Text>
+            <Text style={s.cycleSub}>
+              {profile === 'ciclado'
+                ? 'Los objetivos de abajo son los del día de ciclado.'
+                : 'Prendelo para cambiar a los objetivos de ciclado.'}
+            </Text>
+          </View>
+          <Switch
+            value={profile === 'ciclado'}
+            onValueChange={handleToggleCycle}
+            trackColor={{ false: colors.surfaceSecondary, true: colors.accent }}
+          />
+        </View>
+
         {loading ? (
           <ActivityIndicator style={s.loader} color={colors.accent} />
         ) : (
@@ -125,15 +166,30 @@ export default function DiarioScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                activeGoals.map((f) => (
+                <>
+                {missingForWeight && (
+                  <TouchableOpacity onPress={() => router.push('/nutricion/peso')}>
+                    <Text style={s.noWeight}>
+                      Registrá tu peso para ver los objetivos de proteína, carbos
+                      y grasa →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {weightKg !== null && (
+                  <Text style={s.weightNote}>
+                    Calculado con {formatKg(weightKg)} kg
+                  </Text>
+                )}
+                {activeGoals.map((f) => (
                   <MacroBar
                     key={f}
                     label={GOAL_LABELS[f]}
                     consumed={totals?.[f] ?? 0}
-                    goal={goals?.[f] ?? null}
+                    goal={goals[f]}
                     unit={GOAL_UNITS[f]}
                   />
-                ))
+                ))}
+                </>
               )}
             </View>
 
@@ -228,6 +284,16 @@ const createStyles = (c: AppColorScheme) =>
       backgroundColor: c.surface, borderRadius: 12, padding: 16,
       borderWidth: 1, borderColor: c.border, marginBottom: 18,
     },
+    cycleRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: c.surface, borderRadius: 12, padding: 14,
+      borderWidth: 1, borderColor: c.border, marginBottom: 16,
+    },
+    cycleInfo: { flex: 1 },
+    cycleTitle: { color: c.text, fontSize: 14, fontWeight: '700' },
+    cycleSub: { color: c.textMuted, fontSize: 11, marginTop: 2, lineHeight: 15 },
+    noWeight: { color: c.warning, fontSize: 12, lineHeight: 17, marginBottom: 12 },
+    weightNote: { color: c.textMuted, fontSize: 11, marginBottom: 12 },
     noGoalTitle: { color: c.text, fontSize: 24, fontWeight: '800' },
     noGoalLink: { color: c.accent, fontSize: 13, marginTop: 8, fontWeight: '600' },
     meal: { marginBottom: 18 },

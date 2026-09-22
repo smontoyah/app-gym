@@ -17,9 +17,8 @@ import { WeightChart } from '@/components/nutricion/weight-chart';
 import { formatKg, type DayPoint } from '@/lib/nutricion/peso';
 import { buildRange, hasComparison, RANGE_KEYS, type RangeKey } from '@/lib/date-ranges';
 import { plural } from '@/lib/stats-format';
-import type { NutritionGoals } from '@/types/database';
 import { chartSeries, fetchNutritionStats } from './_lib/actions';
-import { EMPTY_SUMMARY, type NutritionSummary } from './_lib/types';
+import { EMPTY_PERIOD_GOAL, EMPTY_SUMMARY, type NutritionSummary, type PeriodGoal } from './_lib/types';
 import { SummaryPanel } from './_components/summary-panel';
 import { KcalChart } from './_components/kcal-chart';
 import { GoalMeters } from './_components/goal-meters';
@@ -44,7 +43,7 @@ export default function NutricionStatsScreen() {
 
   const [rangeKey, setRangeKey] = useState<RangeKey>(DEFAULT_RANGE);
   const [summary, setSummary] = useState<NutritionSummary>(EMPTY_SUMMARY);
-  const [goals, setGoals] = useState<NutritionGoals | null>(null);
+  const [goals, setGoals] = useState<PeriodGoal>(EMPTY_PERIOD_GOAL);
   const [weights, setWeights] = useState<DayPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

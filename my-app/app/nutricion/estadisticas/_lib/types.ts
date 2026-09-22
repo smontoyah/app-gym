@@ -1,3 +1,4 @@
+import { EMPTY_RESOLVED, type ResolvedGoals } from '@/lib/nutricion/objetivos';
 import type { MealSlot } from '@/types/database';
 
 /** Un día del rango con sus totales ya sumados en Postgres. */
@@ -28,6 +29,22 @@ export type FoodStat = {
   grams: number;
   days: number;
 };
+
+/**
+ * El objetivo promedio del período, ya en gramos.
+ *
+ * No es «el objetivo»: con dos perfiles y un peso que se mueve, la meta contra
+ * la que se comió no fue una sola. Promediarla día por día es lo único que la
+ * vuelve comparable contra un promedio de consumo.
+ */
+export type PeriodGoal = {
+  goal: ResolvedGoals;
+  /** Cuántos días del rango fueron de ciclado. */
+  cycleDays: number;
+};
+
+/** Un período sin objetivo resoluble: ni perfil cargado, ni pesaje. */
+export const EMPTY_PERIOD_GOAL: PeriodGoal = { goal: { ...EMPTY_RESOLVED }, cycleDays: 0 };
 
 export type MacroAverages = {
   kcal: number | null;

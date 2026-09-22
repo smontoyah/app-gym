@@ -1,10 +1,13 @@
 import { supabase } from '@/lib/supabase';
-import type { NutritionGoals, NutritionSummaryRow } from '@/types/database';
-import { fetchGoals } from '@/lib/nutricion/diario';
+import type { NutritionDayGoal, NutritionSummaryRow } from '@/types/database';
+import { EMPTY_RESOLVED, GOAL_FIELDS, type GoalField, type ResolvedGoals } from '@/lib/nutricion/objetivos';
 import { dailySeries, fetchWeights, type DayPoint } from '@/lib/nutricion/peso';
 import { addDays } from '@/lib/date';
 import type { DateRange } from '@/lib/date-ranges';
-import { EMPTY_SUMMARY, type ChartDay, type NutritionSummary } from './types';
+import {
+  EMPTY_PERIOD_GOAL, EMPTY_SUMMARY,
+  type ChartDay, type NutritionSummary, type PeriodGoal,
+} from './types';
 
 /**
  * Los promedios se agregan en Postgres, no acá.
@@ -99,9 +102,33 @@ export function chartSeries(summary: NutritionSummary): ChartDay[] {
   return out;
 }
 
+/**
+ * El objetivo promedio del rango.
+ *
+ * Se promedia solo sobre los días que TIENEN objetivo definido: incluir los
+ * que vienen en null —porque ese macro no está configurado, o porque todavía no
+ * había pesaje— arrastraría la meta hacia abajo y haría parecer que se comió de
+ * más.
+ */
+function averageGoal(days: NutritionDayGoal[]): PeriodGoal {
+  const goal = { ...EMPTY_RESOLVED } as ResolvedGoals;
+
+  for (const field of GOAL_FIELDS) {
+    const values = days
+      .map((d) => d[field as GoalField])
+      .filter((v): v is number => v != null)
+      .map(Number);
+    if (values.length > 0) {
+      goal[field] = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+    }
+  }
+
+  return { goal, cycleDays: days.filter((d) => d.profile === 'ciclado').length };
+}
+
 export type NutritionStatsPayload = {
   summary: NutritionSummary;
-  goals: NutritionGoals | null;
+  goals: PeriodGoal;
   /** Pesajes promediados por día, ya acotados al rango. */
   weights: DayPoint[];
   error: string | null;
@@ -119,13 +146,13 @@ export type NutritionStatsPayload = {
 export async function fetchNutritionStats(range: DateRange): Promise<NutritionStatsPayload> {
   const [summaryRes, goalsRes, weightsRes] = await Promise.all([
     supabase.rpc('nutrition_summary', { p_from: range.from, p_to: range.to }),
-    fetchGoals(),
+    supabase.rpc('nutrition_day_goals', { p_from: range.from, p_to: range.to }),
     fetchWeights(),
   ]);
 
-  const error = summaryRes.error?.message ?? goalsRes.error ?? weightsRes.error ?? null;
+  const error = summaryRes.error?.message ?? goalsRes.error?.message ?? weightsRes.error ?? null;
   if (error) {
-    return { summary: EMPTY_SUMMARY, goals: null, weights: [], error };
+    return { summary: EMPTY_SUMMARY, goals: EMPTY_PERIOD_GOAL, weights: [], error };
   }
 
   const row = ((summaryRes.data ?? []) as NutritionSummaryRow[])[0];
@@ -133,7 +160,7 @@ export async function fetchNutritionStats(range: DateRange): Promise<NutritionSt
 
   return {
     summary: row ? mapSummary(row) : EMPTY_SUMMARY,
-    goals: goalsRes.goals,
+    goals: averageGoal((goalsRes.data ?? []) as NutritionDayGoal[]),
     weights: dailySeries(inRange),
     error: null,
   };

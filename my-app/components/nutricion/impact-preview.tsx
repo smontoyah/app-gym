@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 import type { AppColorScheme } from '@/constants/theme';
-import type { NutritionGoals } from '@/types/database';
 import { GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS, type DayTotals, type GoalField } from '@/lib/nutricion/diario';
+import type { ResolvedGoals } from '@/lib/nutricion/objetivos';
 import { formatMacro } from '@/components/nutricion/macro-bar';
 
 type Props = {
@@ -11,7 +11,8 @@ type Props = {
   totals: DayTotals;
   /** Lo que sumaría la cantidad escrita, todavía sin guardar. */
   added: DayTotals;
-  goals: NutritionGoals | null;
+  /** Ya resuelto en gramos: la vista previa no sabe que la tabla guarda g/kg. */
+  goals: ResolvedGoals;
   /** Cómo se lee la cantidad simulada: "2 huevos · 100 g". */
   quantityLabel: string;
 };
@@ -32,7 +33,7 @@ export function ImpactPreview({ totals, added, goals, quantityLabel }: Props) {
   // Con objetivo se muestran las metas definidas; sin objetivo no hay contra
   // qué comparar, así que se listan las macros que el alimento realmente trae
   // (las que vengan en cero solo serían renglones vacíos).
-  const withGoal = GOAL_FIELDS.filter((f) => goals?.[f] != null);
+  const withGoal = GOAL_FIELDS.filter((f) => goals[f] != null);
   const shown: GoalField[] =
     withGoal.length > 0 ? withGoal : GOAL_FIELDS.filter((f) => added[f] > 0);
 
@@ -50,7 +51,7 @@ export function ImpactPreview({ totals, added, goals, quantityLabel }: Props) {
         shown.map((f) => {
           const before = totals[f];
           const after = before + added[f];
-          const goal = goals?.[f] ?? null;
+          const goal = goals[f];
           const over = goal != null && after > goal;
           // Los dos tramos se recortan al objetivo: sin el tope, pasarse lo
           // haría desbordar la tarjeta. El exceso lo dice el color y el texto.

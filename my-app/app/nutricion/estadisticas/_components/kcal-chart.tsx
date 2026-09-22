@@ -5,8 +5,8 @@ import { DAY_NAMES_FULL, formatShort, parseDateStr } from '@/lib/date';
 import { Section } from '@/components/stats/section';
 import { ChipRow, type ChipOption } from '@/components/stats/chip-row';
 import { plural, thousands } from '@/lib/stats-format';
-import type { NutritionGoals } from '@/types/database';
-import type { ChartDay } from '../_lib/types';
+import type { GoalField } from '@/lib/nutricion/objetivos';
+import type { ChartDay, PeriodGoal } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 /**
@@ -39,7 +39,7 @@ const METRIC_NAME: Record<Metric, string> = {
   kcal: 'calorías', protein: 'proteína', carbs: 'carbohidratos', fat: 'grasa', fiber: 'fibra',
 };
 
-const GOAL_FIELD: Record<Metric, keyof NutritionGoals> = {
+const GOAL_FIELD: Record<Metric, GoalField> = {
   kcal: 'energy_kcal', protein: 'protein_g', carbs: 'carbs_g', fat: 'fat_g', fiber: 'fiber_g',
 };
 
@@ -72,7 +72,7 @@ function fullDate(dateStr: string): string {
 
 type Props = {
   days: ChartDay[];
-  goals: NutritionGoals | null;
+  goals: PeriodGoal;
   /** Promedio de los días completos, para el pie de la sección. */
   avgKcal: number | null;
 };
@@ -85,7 +85,7 @@ export const KcalChart = memo(function KcalChart({ days, goals, avgKcal }: Props
   const [metric, setMetric] = useState<Metric>('kcal');
   const [pickedDate, setPickedDate] = useState<string | null>(null);
 
-  const goal = goals?.[GOAL_FIELD[metric]];
+  const goal = goals.goal[GOAL_FIELD[metric]];
   const goalValue = typeof goal === 'number' ? goal : null;
 
   // Sin selección explícita se muestra el último día CON registro: el último

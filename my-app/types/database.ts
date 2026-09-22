@@ -981,6 +981,14 @@ export type Database = {
         };
         Returns: NutritionSummaryRow[];
       };
+      /** Qué objetivo regía cada día: su perfil, y su peso vigente de entonces. */
+      nutrition_day_goals: {
+        Args: {
+          p_from: string;
+          p_to: string;
+        };
+        Returns: NutritionDayGoal[];
+      };
       previous_sets: {
         Args: { p_before: string; p_exercise_ids: string[] };
         Returns: PreviousSetRow[];

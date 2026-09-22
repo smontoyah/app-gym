@@ -4,8 +4,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Section } from '@/components/stats/section';
 import { MacroBar } from '@/components/nutricion/macro-bar';
 import { GOAL_LABELS, GOAL_UNITS, type GoalField } from '@/lib/nutricion/diario';
-import type { NutritionGoals } from '@/types/database';
-import type { MacroAverages } from '../_lib/types';
+import type { MacroAverages, PeriodGoal } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 /**
@@ -28,7 +27,8 @@ const ORDER: GoalField[] = ['energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fib
 
 type Props = {
   avg: MacroAverages;
-  goals: NutritionGoals | null;
+  /** El objetivo PROMEDIO del período, no el de hoy. */
+  goals: PeriodGoal;
   daysComplete: number;
 };
 
@@ -43,7 +43,7 @@ export const GoalMeters = memo(function GoalMeters({ avg, goals, daysComplete }:
   const rows = ORDER.map((field) => ({
     field,
     consumed: avg[FIELD_TO_AVG[field]],
-    goal: goals?.[field] ?? null,
+    goal: goals.goal[field],
   })).filter((row) => row.consumed !== null);
 
   if (rows.length === 0) return null;
@@ -51,7 +51,11 @@ export const GoalMeters = memo(function GoalMeters({ avg, goals, daysComplete }:
   const hasAnyGoal = rows.some((row) => row.goal !== null);
 
   return (
-    <Section title="Promedio contra meta" hint={`${daysComplete} días completos`}>
+    <Section title="Promedio contra meta" hint={
+        goals.cycleDays > 0
+          ? `${daysComplete} días completos · ${goals.cycleDays} de ciclado`
+          : `${daysComplete} días completos`
+      }>
       {rows.map((row) => (
         <MacroBar
           key={row.field}

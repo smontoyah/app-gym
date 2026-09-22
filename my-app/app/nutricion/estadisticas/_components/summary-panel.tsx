@@ -4,8 +4,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Section } from '@/components/stats/section';
 import { absDelta, pctDelta, plural, thousands, type Delta } from '@/lib/stats-format';
 import { formatKg, type DayPoint } from '@/lib/nutricion/peso';
-import type { NutritionGoals } from '@/types/database';
-import type { NutritionSummary } from '../_lib/types';
+import type { NutritionSummary, PeriodGoal } from '../_lib/types';
 import type { AppColorScheme } from '@/constants/theme';
 
 type Tile = {
@@ -24,7 +23,8 @@ type Tile = {
 
 type Props = {
   summary: NutritionSummary;
-  goals: NutritionGoals | null;
+  /** El objetivo PROMEDIO del período, no el de hoy. */
+  goals: PeriodGoal;
   weights: DayPoint[];
   periodTitle: string;
   /** Con «Todo» no hay período anterior contra el que comparar. */
@@ -43,7 +43,7 @@ export const SummaryPanel = memo(function SummaryPanel({
 
   const tiles = useMemo<Tile[]>(() => {
     const { avg, prev } = summary;
-    const goalKcal = goals?.energy_kcal ?? null;
+    const goalKcal = goals.goal.energy_kcal;
     const latest = weights.length > 0 ? weights[weights.length - 1] : null;
     const firstWeight = weights.length > 1 ? weights[0] : null;
 
