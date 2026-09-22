@@ -7,6 +7,77 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-09-21 — Fibra del Fríjol Blanquillo: de `null` a 15 g/100 g crudo
+
+`Fríjol Blanquillo` de Aburrá (`60a16a79`) tenía `fiber_g` en **null**: la
+etiqueta no imprime fibra y el OCR, correctamente, no se la inventó. Resultado:
+la fibra del frijol **desaparecía en silencio** de la suma diaria, justo en la
+única meta de calidad que venía quedando corta.
+
+### Cómo se reconstruyó el número
+
+**El hueco de Atwater de la propia etiqueta la reconstruye.** Declarado por
+100 g crudo: 380 kcal · 24 P · 74 C · 2 G.
+
+```
+4·24 + 4·74 + 9·2 = 410 kcal  contra  380 declaradas  →  hueco de 30 kcal
+30 / 2 kcal·g⁻¹ (fibra dietaria, factor de rotulado colombiano) = 15,0 g/100 g
+```
+
+Contraste independiente: USDA SR Legacy *Beans, white, mature seeds, raw* =
+**15,2 g**. Dos vías que no se hablan cayendo en el mismo punto.
+
+**Generalizable:** cuando una etiqueta no imprime fibra, el hueco de Atwater la
+recupera — pero **solo si el hueco es negativo** (kcal declaradas < suma de
+macros). Si el hueco es ~0, la etiqueta contó la fibra como carbohidrato
+disponible y no hay señal que extraer; ahí toca ir a USDA.
+
+### Por qué 15 y no 25
+
+El rango de fibra entre variedades de frijol seco crudo en SR Legacy es ancho —
+white 15,2 · kidney 15,2 · navy 15,3 · black 15,5 · **cranberry (cargamanto)
+24,7** · small white 24,9. El blanquillo antioqueño podría estar en cualquiera
+de los dos grupos. Se tomó el extremo bajo **a propósito**: la fibra es una meta
+de calidad, y el error caro es el que le hace creer que llegó a 30 cuando no.
+Subestimarla solo lo empuja a comer más verdura.
+
+### Efecto en los días donde hay frijol
+
+| Día | Fibra antes | Fibra ahora |
+|---|---|---|
+| 2026-08-30 (88 g) | 6,7 | **19,9** |
+| 2026-09-19 (100 g) | 14,1 | **29,1** |
+| 2026-09-20 (100 g) | 9,5 | **24,5** |
+| 2026-09-21 (50 g) | 18,0 | **25,5** |
+
+No es cosmético: mueve el diagnóstico de "fibra crónicamente en la mitad de la
+meta" a "en meta los días que hay frijol". **Cuidado al releer análisis viejos
+de fibra: los hechos antes de hoy leen bajo en esos cuatro días.**
+
+### Lo que quedó SIN tocar — tres cosas que este producto todavía debe
+
+1. **La etiqueta está fuera de la familia.** Ningún frijol seco de SR Legacy
+   pasa de 347 kcal ni de 64 g de carbos; este declara **380 y 74**. Parece
+   calculada en base seca (×1,13 sobre los 333/60 del white bean) o simplemente
+   inflada. Son ~45 kcal de más por cada 100 g crudo — con los 100 g del 20-sep,
+   45 kcal. Pequeño, pero sistemático y siempre en la misma dirección.
+2. **`cooked_yield_pct = 200`.** Por energía, un frijol seco rinde ~240 %
+   (333 crudo / 139 cocido). Con 200 mal puesto, el día que pese **cocido** la
+   app le carga 20 % de más. Hoy no estalla porque pesa en la forma base.
+3. **Es la única leguminosa del catálogo guardada en crudo** — las otras cinco
+   (lenteja, garbanzo, frijol negro, rojo, arveja) son genéricos USDA en
+   **cocido**. Y la regla de pesaje de Ciro dice leguminosas **cocidas**. Los
+   `logged_state = 'cocido'` del 20 y 21 de septiembre confirman que así las
+   pesa: la conversión está ocurriendo con un factor sospechoso (punto 2).
+
+### De paso: los otros `fiber_g` en null no importan
+
+Quedan 5 (`Atún en Agua`, `Camarón`, `Quesito` ×2, `Yogurt griego`). Todos son
+producto animal: la fibra real es 0, así que null y 0 suman igual. Vale
+normalizarlos algún día por limpieza, **no cambian ningún total**.
+
+---
+
 ## 2026-09-06 — Primera receta cargada: "Avena trasnochada proteica"
 
 Pidió un desayuno rápido con avena, chía, ISO100 y yogurt. Quedó cargada como
