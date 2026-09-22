@@ -131,7 +131,7 @@ export default function CatalogoScreen() {
                   <Text style={s.name} numberOfLines={1}>{p.name}</Text>
                   {p.brand ? <Text style={s.brand} numberOfLines={1}>{p.brand}</Text> : null}
                   <Text style={s.macros}>
-                    {p.energy_kcal ?? '—'} kcal · P {p.protein_g ?? '—'} · C {p.carbs_g ?? '—'} · G {p.fat_g ?? '—'}
+                    {p.energy_kcal ?? '—'} kcal · P {p.protein_g ?? '—'} · C {p.carbs_g ?? '—'} · G {p.fat_g ?? '—'} · F {p.fiber_g ?? '—'}
                     {/* La forma es parte de la base: 100 g de arroz seco y 100 g
                         del mismo arroz cocido no son el mismo renglón. */}
                     <Text style={s.per}>  /100 g{p.base_state ? ` en ${stateLabel(p.base_state)}` : ''}</Text>

@@ -248,7 +248,8 @@ export default function RecetaScreen() {
                 </Text>
                 <Text style={s.totalsLine}>
                   {nutrition.energy_kcal ?? '—'} kcal · P {nutrition.protein_g ?? '—'} g ·
-                  C {nutrition.carbs_g ?? '—'} g · G {nutrition.fat_g ?? '—'} g
+                  C {nutrition.carbs_g ?? '—'} g · G {nutrition.fat_g ?? '—'} g ·
+                  F {nutrition.fiber_g ?? '—'} g
                 </Text>
                 <Text style={s.totalsPer}>
                   Por 100 g servidos:{' '}

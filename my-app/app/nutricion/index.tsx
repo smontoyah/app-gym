@@ -148,7 +148,7 @@ export default function DiarioScreen() {
                       {/* Con la comida vacía los macros en cero son ruido: ahí
                           basta el 0 kcal. */}
                       {items.length > 0
-                        ? `P ${Math.round(mealTotals.protein_g)}  C ${Math.round(mealTotals.carbs_g)}  G ${Math.round(mealTotals.fat_g)}  ·  `
+                        ? `P ${Math.round(mealTotals.protein_g)}  C ${Math.round(mealTotals.carbs_g)}  G ${Math.round(mealTotals.fat_g)}  F ${Math.round(mealTotals.fiber_g)}  ·  `
                         : ''}
                       {Math.round(mealTotals.energy_kcal)} kcal
                     </Text>
@@ -169,7 +169,7 @@ export default function DiarioScreen() {
                             loggedState: e.logged_state,
                           })}
                           {e.source_type === 'receta' ? ' · receta' : ''}
-                          {'  ·  P '}{e.protein_g ?? 0}{'  C '}{e.carbs_g ?? 0}{'  G '}{e.fat_g ?? 0}
+                          {'  ·  P '}{e.protein_g ?? 0}{'  C '}{e.carbs_g ?? 0}{'  G '}{e.fat_g ?? 0}{'  F '}{e.fiber_g ?? 0}
                         </Text>
                       </View>
                       <Text style={s.entryKcal}>{Math.round(e.energy_kcal ?? 0)}</Text>
