@@ -9,10 +9,11 @@ import type { AppColorScheme } from '@/constants/theme';
 import { PhotoSlot } from '@/components/nutricion/photo-slot';
 import { ProductFields } from '@/components/nutricion/product-fields';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
-import { capture, runOcr, toPer100g, type PhotoKind, type Shot } from '@/lib/nutricion/scan';
+import { capture, runOcr, type PhotoKind, type Shot } from '@/lib/nutricion/scan';
+import { toPer100g, type BasisMismatch } from '@/lib/nutricion/normalizar';
 import { saveProduct } from '@/lib/nutricion/actions';
 import {
-  EMPTY_DRAFT, MACRO_FIELDS,
+  EMPTY_DRAFT, MACRO_FIELDS, MACRO_LABELS,
   type DraftSetter, type MacroField, type OcrMacros, type OcrResult, type ProductDraft,
 } from '@/lib/nutricion/types';
 
@@ -60,6 +61,7 @@ export default function EscanearScreen() {
   const [ocr, setOcr] = useState<OcrResult | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const [derived, setDerived] = useState(false);
+  const [mismatch, setMismatch] = useState<BasisMismatch | null>(null);
   const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
 
   const reviewing = ocr !== null;
@@ -85,7 +87,7 @@ export default function EscanearScreen() {
     }
 
     const data = result.data;
-    const { macros, derived: wasDerived } = toPer100g(data);
+    const { macros, derived: wasDerived, mismatch: basisMismatch } = toPer100g(data);
 
     if (!macros) {
       return Alert.alert(
@@ -98,6 +100,7 @@ export default function EscanearScreen() {
               setOcr(data);
               setModel(result.meta.model);
               setDerived(false);
+              setMismatch(null);
               setDraft(draftFromOcr(data, null));
             },
           },
@@ -108,6 +111,7 @@ export default function EscanearScreen() {
     setOcr(data);
     setModel(result.meta.model);
     setDerived(wasDerived);
+    setMismatch(basisMismatch);
     setDraft(draftFromOcr(data, macros));
   };
 
@@ -172,11 +176,32 @@ export default function EscanearScreen() {
 
       {reviewing && ocr && (
         <>
-          {derived && (
+          {mismatch && (
+            <View style={[s.banner, s.bannerWarn]}>
+              <Text style={s.bannerText}>
+                Las dos columnas de la etiqueta no hablan de la misma base: en “
+                {MACRO_LABELS[mismatch.field]}” la de 100 g dice {mismatch.printed}, pero la
+                porción de {ocr.serving_size_g} g implica {mismatch.fromServing}. Suele pasar
+                cuando la tabla está calculada sobre el producto ya preparado. Abajo quedaron
+                los valores de la porción, que es la única atada a un peso real: revisalos.
+              </Text>
+            </View>
+          )}
+          {derived && !mismatch && (
             <View style={[s.banner, s.bannerWarn]}>
               <Text style={s.bannerText}>
                 La etiqueta solo traía la columna por porción. Los valores de abajo se
                 convirtieron a 100 g usando la porción de {ocr.serving_size_g} g.
+              </Text>
+            </View>
+          )}
+          {ocr.preparation && (
+            <View style={s.banner}>
+              <Text style={s.bannerText}>
+                La tabla está calculada sobre el producto preparado ({ocr.preparation}). Los
+                valores por porción igual corresponden a {ocr.serving_size_g} g de producto,
+                salvo que el líquido aporte lo suyo: si se prepara con leche, esos números la
+                incluyen y hay que descontarla a mano.
               </Text>
             </View>
           )}

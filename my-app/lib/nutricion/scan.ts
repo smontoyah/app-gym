@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { supabase } from '@/lib/supabase';
-import type { OcrMacros, OcrResponse, OcrResult } from './types';
+import type { OcrResponse } from './types';
 
 /**
  * Las dos fotos no merecen la misma calidad. La de la tabla tiene que dejar
@@ -111,28 +111,8 @@ export async function runOcr(
   return { result: data, error: null };
 }
 
-const scaleMacros = (m: OcrMacros, factor: number): OcrMacros =>
-  Object.fromEntries(
-    Object.entries(m).map(([k, v]) => [k, v == null ? null : Math.round(v * factor * 100) / 100])
-  ) as OcrMacros;
-
-const hasAnyValue = (m: OcrMacros | null): m is OcrMacros =>
-  !!m && Object.values(m).some((v) => v != null);
-
 /**
- * Normaliza a la base canónica de 100 g.
- *
- * El modelo tiene prohibido derivar una columna de la otra —así no inventa
- * números— así que la conversión la hace la app, que es determinista y
- * auditable. Si la etiqueta solo traía la columna por porción, se escala con
- * el tamaño de porción; sin ese dato no hay forma honesta de normalizar.
+ * La normalización a 100 g vive en `./normalizar`: es aritmética pura y este
+ * módulo arrastra cámara, Storage y red, que la volverían intesteable.
  */
-export function toPer100g(ocr: OcrResult): { macros: OcrMacros | null; derived: boolean } {
-  if (hasAnyValue(ocr.per_100g)) return { macros: ocr.per_100g, derived: false };
-
-  if (hasAnyValue(ocr.per_serving) && ocr.serving_size_g && ocr.serving_size_g > 0) {
-    return { macros: scaleMacros(ocr.per_serving, 100 / ocr.serving_size_g), derived: true };
-  }
-
-  return { macros: null, derived: false };
-}
+export { toPer100g } from './normalizar';

@@ -7,6 +7,67 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-09-22 — El whey de Sin Intermediarios: la tabla era de la bebida, no del polvo
+
+`WHEY PROTEÍNA` de Sin Intermediarios (`97550f0c`) entró con **65 kcal y 12 g de
+proteína por 100 g**: un suplemento de proteína con menos proteína que la leche.
+El OCR no falló leyendo; falló entendiendo qué era cada columna.
+
+### La convención de la etiqueta
+
+Las dos columnas impresas son del **batido preparado**, no del polvo:
+
+| Columna impresa | Qué es realmente |
+|---|---|
+| `Por 100 mL` | 100 mL de bebida = ~16,5 g de polvo en agua |
+| `Por porción preparada` | 1 cuchara (33 g) de polvo en 200 mL de agua |
+
+El modelo mapeó `Por 100 mL` → `per_100g`, y la app la guardó tal cual. Seis
+veces diluido. La columna por porción, en cambio, **sí** es el producto: el agua
+no aporta nada, así que esos 130 kcal y 23 P son los de los 33 g de polvo.
+
+### La corrección
+
+Porción × (100 / 33) → **393,94 kcal · 69,7 P · 11,21 C · 6,97 G · 2,73 F ·
+148,48 Na** por 100 g de polvo. Tres contrastes, los tres cierran:
+
+- **Ida y vuelta:** 33 g de lo guardado devuelven 130 kcal / 23 P / 49 mg Na,
+  clavados contra la columna impresa.
+- **Atwater:** 4·69,7 + 4·11,21 + 9·6,97 = 386 kcal contra 393,94 declaradas
+  (2 % de hueco, lo normal con fibra y redondeo).
+- **Envase:** 910 g / 33 g = 27,6 ≈ las 28 porciones que declara. Y 69,7 % de
+  proteína es exactamente un concentrado de suero.
+
+El único registro afectado (38 g, snack del 22-sep) pasó de ~25 a **149,7 kcal
+y 26,5 g de proteína** solo con corregir el producto: el diario calcula desde
+ahí. Al producto se le agregó `(en polvo)` al nombre, por la convención de que
+el nombre diga la forma en que se pesa.
+
+**El UPDATE lo pidió él explícitamente** (ver más abajo la regla de no tocar el
+catálogo por cuenta propia).
+
+### Auditoría: no hay hermanos
+
+Se contrastó todo el catálogo comparando `energy_kcal` guardado contra
+`ocr_raw->per_serving` escalado por `serving_size_g`. **Cero productos con más
+de 20 % de desajuste.** La leche Latti y la Frescampo guardan su columna de
+100 mL en las de 100 g, y eso **está bien**: se venden líquidas, 1 mL ≈ 1 g.
+
+### La defensa que quedó puesta
+
+La distinción que importa no es *g contra mL*, es **tal como se vende contra
+preparado**. Quedó en dos capas:
+
+1. El OCR tiene `per_100ml_prepared` y `preparation`, y reglas (2d, 2e) que le
+   enseñan a no meter la columna del preparado en `per_100g` — y a no confundir
+   eso con un líquido que se vende listo.
+2. `toPer100g` contrasta las dos columnas impresas antes de creerle a la de
+   100 g: si no cuadran por más de 20 %, gana la de porción, que es la única
+   atada a un peso real, y la pantalla de revisión lo avisa. Esto atrapa el caso
+   **aunque el modelo vuelva a equivocarse**.
+
+---
+
 ## 2026-09-21 — Fibra del Fríjol Blanquillo: de `null` a 15 g/100 g crudo
 
 `Fríjol Blanquillo` de Aburrá (`60a16a79`) tenía `fiber_g` en **null**: la

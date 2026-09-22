@@ -24,8 +24,8 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
 
-// Los dos bloques de macros comparten forma. Gemini no resuelve $ref de forma
-// fiable en responseSchema, así que se referencia el mismo objeto dos veces.
+// Los tres bloques de macros comparten forma. Gemini no resuelve $ref de forma
+// fiable en responseSchema, así que se referencia el mismo objeto tres veces.
 const MACROS = {
   type: 'object',
   nullable: true,
@@ -73,14 +73,19 @@ const RESPONSE_SCHEMA = {
     serving_size_g: { type: 'number', nullable: true, description: 'Gramos por porción, como número.' },
     serving_label: {
       type: 'string', nullable: true,
-      description: 'Transcripción LITERAL de la porción impresa, con su unidad casera. Ej.: "1 cucharada (15 g)", "1 unidad (100 g)". NO lo normalices a "1 porción (X g)": si dice cucharada, escribe cucharada.',
+      description: 'Transcripción LITERAL de la porción impresa, con su unidad casera. Ej.: "1 cucharada (15 g)", "1 unidad (100 g)". NO lo normalices a "1 porción (X g)": si dice cucharada, escribe cucharada. El modo de preparación NO va acá, va en preparation.',
+    },
+    preparation: {
+      type: 'string', nullable: true,
+      description: 'Modo de preparación impreso junto a la porción, literal y sin repetir el tamaño de la porción. Ej.: "en 200 mL de agua", "en 240 mL de leche". null si el producto se consume tal como viene en el empaque.',
     },
     servings_per_package: { type: 'number', nullable: true, description: 'Número de porciones por envase.' },
     per_serving: MACROS,
     per_100g: MACROS,
+    per_100ml_prepared: MACROS,
     printed_columns: {
       type: 'array',
-      items: { type: 'string', enum: ['per_serving', 'per_100g'] },
+      items: { type: 'string', enum: ['per_serving', 'per_100g', 'per_100ml_prepared'] },
     },
     unreadable_fields: {
       type: 'array', items: { type: 'string' },
@@ -92,8 +97,8 @@ const RESPONSE_SCHEMA = {
   required: ['printed_columns', 'unreadable_fields', 'confidence'],
   propertyOrdering: [
     'product_name', 'brand', 'brand_visible_text', 'package_size_g', 'serving_size_g',
-    'serving_label', 'servings_per_package', 'per_serving', 'per_100g', 'printed_columns',
-    'unreadable_fields', 'confidence', 'notes',
+    'serving_label', 'preparation', 'servings_per_package', 'per_serving', 'per_100g',
+    'per_100ml_prepared', 'printed_columns', 'unreadable_fields', 'confidence', 'notes',
   ],
 };
 
@@ -125,6 +130,27 @@ Reglas estrictas:
    "Información Nutricional (100 g)" y otro "Información Nutricional (porción)".
    Trátalos igual: el primero es per_100g y el segundo per_serving.
 
+2d. TAL COMO SE VENDE vs. PREPARADO. per_100g y per_serving se refieren SIEMPRE
+   al producto tal como viene en el empaque. Hay polvos que hay que disolver
+   —proteína, leche en polvo, chocolate instantáneo, refrescos, sopas— cuya
+   tabla está calculada sobre la bebida YA PREPARADA. Se reconocen por el
+   encabezado o por el tamaño de la porción: "Por 100 mL", "por porción
+   preparada", "reconstituido", "listo para consumir", o una porción escrita
+   como "1 cuchara medidora (33 g), en 200 mL de agua". En ese caso:
+     - La columna por 100 mL NO es per_100g. Va en per_100ml_prepared y
+       per_100g queda en null. 100 mL de bebida diluida no son 100 g de polvo:
+       meter esos valores en per_100g deja el producto con seis veces menos
+       calorías de las que tiene, y es el peor error posible en esta tarea.
+     - La columna "por porción preparada" SÍ va en per_serving: esos valores
+       corresponden a los gramos de producto que dice la porción.
+     - preparation lleva el modo de preparación literal ("en 200 mL de agua").
+
+2e. La distinción de 2d es si el producto hay que prepararlo, NO si la unidad
+   es g o mL. Un líquido que se vende listo para tomar —leche, jugo, yogur
+   bebible, gaseosa— se mide en mL porque así se vende: su columna "por 100 mL"
+   SÍ es el producto tal como se vende y va en per_100g como cualquier otra.
+   Ahí per_100ml_prepared queda en null: no hay nada que preparar.
+
 3. product_name y brand se leen del FRENTE del empaque, no de la tabla. Si no
    hay segunda imagen o no se lee con claridad, déjalos en null.
 
@@ -139,7 +165,10 @@ Reglas estrictas:
 
 3c. serving_label se transcribe TEXTUALMENTE como aparece impreso. Si la etiqueta
    dice "1 cucharada (15 g)", eso va en serving_label; no lo normalices a
-   "1 porción (15 g)" ni a ninguna otra forma genérica.
+   "1 porción (15 g)" ni a ninguna otra forma genérica. Si la porción viene
+   pegada al modo de preparación ("1 cuchara medidora (33 g), en 200 mL de
+   agua"), parte la frase: la porción del producto en serving_label y el resto
+   en preparation.
 
 4. Energía: llena energy_kcal si está en kcal y energy_kj si está en kJ. Si solo
    viene una de las dos, la otra queda en null. No conviertas entre unidades.

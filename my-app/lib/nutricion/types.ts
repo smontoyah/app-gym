@@ -33,10 +33,23 @@ export type OcrResult = {
   package_size_g: number | null;
   serving_size_g: number | null;
   serving_label: string | null;
+  /**
+   * Modo de preparación impreso junto a la porción ("en 200 mL de agua"). Solo
+   * lo traen los productos que hay que disolver, y su presencia avisa que la
+   * tabla puede estar calculada sobre el preparado y no sobre el polvo.
+   */
+  preparation: string | null;
   servings_per_package: number | null;
   per_serving: OcrMacros | null;
   per_100g: OcrMacros | null;
-  printed_columns: ('per_serving' | 'per_100g')[];
+  /**
+   * Columna "por 100 mL" de la bebida ya preparada. Se transcribe para no
+   * perderla y, sobre todo, para que el modelo tenga dónde ponerla en vez de
+   * colarla en `per_100g`: 100 mL de bebida no son 100 g de producto. La app
+   * nunca la usa como base.
+   */
+  per_100ml_prepared: OcrMacros | null;
+  printed_columns: ('per_serving' | 'per_100g' | 'per_100ml_prepared')[];
   /** Campos que el modelo declaró ilegibles. La UI los marca para revisión. */
   unreadable_fields: string[];
   confidence: number;
