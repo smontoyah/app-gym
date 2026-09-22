@@ -18,7 +18,7 @@ import {
 import { DaySelector, DAYS } from './_components/day-selector';
 import { RoutineCard, type PrescriptionValues } from './_components/routine-card';
 import { ExerciseForm } from './_components/exercise-form';
-import type { Exercise, RoutineWithExercise } from '@/types/database';
+import type { Exercise, RoutineWithExercise, TrackingMode } from '@/types/database';
 import type { AppColorScheme } from '@/constants/theme';
 
 export default function ConfigScreen() {
@@ -46,8 +46,12 @@ export default function ConfigScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const handleCreateExercise = async (name: string, muscleGroup: string) => {
-    const { success, error } = await createExercise(name, muscleGroup);
+  const handleCreateExercise = async (
+    name: string,
+    muscleGroup: string,
+    trackingMode: TrackingMode
+  ) => {
+    const { success, error } = await createExercise(name, muscleGroup, trackingMode);
     if (!success) return Alert.alert('No se pudo crear', error ?? 'Error desconocido');
     setShowAddExercise(false);
     loadData();

@@ -42,3 +42,19 @@ export const MUSCLE_GROUPS = [
 ] as const;
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
+
+/**
+ * El cardio no es un músculo, pero comparte columna con los que sí lo son:
+ * `exercises.muscle_group` es texto libre, y agregar una tabla de categorías
+ * para un solo valor sería peor que este acuerdo.
+ *
+ * Que esté FUERA de `MUSCLE_GROUPS` es justamente lo que impide que la
+ * caminadora aparezca como un grupo en «Balance por grupo» con un récord de
+ * 0 kg. Las estadísticas cortan por este valor, no por el modo de medición:
+ * una plancha es Core en modo tiempo y sí tiene que contar como trabajo de ese
+ * grupo.
+ */
+export const CARDIO_GROUP = 'Cardio';
+
+/** Lo que ofrece el desplegable: los músculos, y cardio al final. */
+export const EXERCISE_CATEGORIES = [...MUSCLE_GROUPS, CARDIO_GROUP] as const;

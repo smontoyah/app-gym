@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { currentUserId } from '@/lib/auth-helpers';
-import type { Exercise, RoutineWithExercise } from '@/types/database';
+import type { Exercise, RoutineWithExercise, TrackingMode } from '@/types/database';
 
 export async function fetchRoutinesAndExercises(dayOfWeek: number): Promise<{
   routines: RoutineWithExercise[];
@@ -38,14 +38,18 @@ export async function fetchRoutinesAndExercises(dayOfWeek: number): Promise<{
  */
 export async function createExercise(
   name: string,
-  muscleGroup: string
+  muscleGroup: string,
+  trackingMode: TrackingMode
 ): Promise<{ success: boolean; error: string | null }> {
   const auth = await currentUserId();
   if (!auth.userId) return { success: false, error: auth.error };
 
-  const { error } = await supabase
-    .from('exercises')
-    .insert({ user_id: auth.userId, name: name.trim(), muscle_group: muscleGroup.trim() || 'General' });
+  const { error } = await supabase.from('exercises').insert({
+    user_id: auth.userId,
+    name: name.trim(),
+    muscle_group: muscleGroup.trim() || 'General',
+    tracking_mode: trackingMode,
+  });
 
   if (error) {
     // Como nada se borra, un duplicado por tipeo queda para siempre y parte el
