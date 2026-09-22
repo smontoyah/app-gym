@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { currentUserId } from '@/lib/auth-helpers';
+import { GOAL_FIELDS, type GoalField } from './objetivos';
 import type {
   FoodState, MealSlot, NutritionGoals, NutritionLogMacros,
 } from '@/types/database';
@@ -13,25 +14,9 @@ export const MEAL_LABELS: Record<MealSlot, string> = {
   snack: 'Snacks',
 };
 
-/** Las cuatro que se muestran contra el objetivo. */
-export const GOAL_FIELDS = ['energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g'] as const;
-export type GoalField = (typeof GOAL_FIELDS)[number];
-
-export const GOAL_LABELS: Record<GoalField, string> = {
-  energy_kcal: 'Calorías',
-  protein_g: 'Proteína',
-  carbs_g: 'Carbos',
-  fat_g: 'Grasa',
-  fiber_g: 'Fibra',
-};
-
-export const GOAL_UNITS: Record<GoalField, string> = {
-  energy_kcal: 'kcal',
-  protein_g: 'g',
-  carbs_g: 'g',
-  fat_g: 'g',
-  fiber_g: 'g',
-};
+// Los campos de objetivo se mudaron a `objetivos.ts`, que no toca la red. Se
+// re-exportan desde acá porque media app los importa por este camino.
+export { GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS, type GoalField } from './objetivos';
 
 export type DayTotals = Record<GoalField, number>;
 
