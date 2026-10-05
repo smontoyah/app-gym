@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { ThemeSelector } from './_components/theme-selector';
 import { ExportModal } from './_components/export-modal';
 import { GlossaryModal } from './_components/glossary-modal';
+import { PasswordModal } from './_components/password-modal';
 import type { AppColorScheme } from '@/constants/theme';
 
 export default function AjustesScreen() {
@@ -14,6 +15,7 @@ export default function AjustesScreen() {
   const styles = createStyles(colors);
   const [showExport, setShowExport] = useState(false);
   const [showGlossary, setShowGlossary] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Cerrar sesión', '¿Estás seguro?', [
@@ -57,6 +59,16 @@ export default function AjustesScreen() {
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
+
+        <View style={styles.separator} />
+
+        <TouchableOpacity style={styles.row} onPress={() => setShowPassword(true)}>
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle}>Cambiar contraseña</Text>
+            <Text style={styles.rowSubtitle}>Necesitás la contraseña actual</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -65,6 +77,7 @@ export default function AjustesScreen() {
 
       <ExportModal visible={showExport} onClose={() => setShowExport(false)} />
       <GlossaryModal visible={showGlossary} onClose={() => setShowGlossary(false)} />
+      <PasswordModal visible={showPassword} onClose={() => setShowPassword(false)} />
     </ScrollView>
   );
 }
