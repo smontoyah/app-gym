@@ -151,6 +151,36 @@ export async function addEntry(params: {
   return { error: error?.message ?? null };
 }
 
+/**
+ * Reescribe un renglón ya registrado. El día y la nota se quedan como estaban:
+ * editar es corregir qué y cuánto se comió, no mudarlo de fecha.
+ */
+export async function updateEntry(
+  id: string,
+  params: {
+    productId?: string;
+    recipeId?: string;
+    meal: MealSlot;
+    /** Siempre en la forma base del producto: la conversión ya se hizo. */
+    quantityG: number;
+    loggedState?: FoodState | null;
+  }
+): Promise<{ error: string | null }> {
+  // Las dos fuentes van siempre: si se eligió otro alimento, la que ya no
+  // corresponde tiene que quedar en null.
+  const { error } = await supabase
+    .from('nutrition_logs')
+    .update({
+      product_id: params.productId ?? null,
+      recipe_id: params.recipeId ?? null,
+      meal: params.meal,
+      quantity_g: params.quantityG,
+      logged_state: params.loggedState ?? null,
+    })
+    .eq('id', id);
+  return { error: error?.message ?? null };
+}
+
 export async function deleteEntry(id: string): Promise<{ error: string | null }> {
   const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
   return { error: error?.message ?? null };

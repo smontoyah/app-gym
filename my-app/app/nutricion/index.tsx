@@ -11,10 +11,10 @@ import { addDays, formatLong } from '@/lib/date';
 import { useAnchoredDate } from '@/hooks/use-today';
 import { canGoForward, dayTitle } from '@/lib/nutricion/dia';
 import { MacroBar } from '@/components/nutricion/macro-bar';
-import { AddEntryModal, type Pick } from '@/components/nutricion/add-entry-modal';
+import { AddEntryModal, type EntryDraft, type Pick } from '@/components/nutricion/add-entry-modal';
 import {
   MEALS, MEAL_LABELS, GOAL_FIELDS, GOAL_LABELS, GOAL_UNITS,
-  fetchDay, addEntry, deleteEntry, setDayProfile, sumTotals, type DayTotals,
+  fetchDay, addEntry, updateEntry, deleteEntry, setDayProfile, sumTotals, type DayTotals,
 } from '@/lib/nutricion/diario';
 import { EMPTY_RESOLVED, PROFILE_LABELS, type ResolvedGoals } from '@/lib/nutricion/objetivos';
 import { formatKg } from '@/lib/nutricion/peso';
@@ -38,6 +38,7 @@ export default function DiarioScreen() {
   const [recipes, setRecipes] = useState<RecipeNutrition[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState<MealSlot | null>(null);
+  const [editing, setEditing] = useState<{ id: string; draft: EntryDraft } | null>(null);
 
   const load = useCallback(async () => {
     const [dayRes, prodRes, recRes] = await Promise.all([
@@ -63,22 +64,46 @@ export default function DiarioScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const handleAdd = async ({ pick, meal, quantityG, loggedState }: {
+  const handleSubmit = async ({ pick, meal, quantityG, loggedState }: {
     pick: Pick;
     meal: MealSlot;
     quantityG: number;
     loggedState: FoodState | null;
   }) => {
-    const { error } = await addEntry({
+    const fields = {
       productId: pick.kind === 'producto' ? pick.product.id : undefined,
       recipeId: pick.kind === 'receta' ? pick.recipe.recipe_id : undefined,
-      loggedOn: day,
       meal,
       quantityG,
       loggedState,
-    });
-    if (error) Alert.alert('No se pudo agregar', error);
+    };
+    const { error } = editing
+      ? await updateEntry(editing.id, fields)
+      : await addEntry({ ...fields, loggedOn: day });
+    if (error) Alert.alert(editing ? 'No se pudo guardar' : 'No se pudo agregar', error);
     else load();
+  };
+
+  const startEdit = (e: NutritionLogMacros) => {
+    const product = e.product_id ? products.find((p) => p.id === e.product_id) : undefined;
+    const recipe = e.recipe_id ? recipes.find((r) => r.recipe_id === e.recipe_id) : undefined;
+    const pick: Pick | null = product
+      ? { kind: 'producto', product }
+      : recipe
+        ? { kind: 'receta', recipe }
+        : null;
+    if (!pick) {
+      return Alert.alert('No se puede editar', `${e.source_name} ya no está en el catálogo.`);
+    }
+    setEditing({
+      id: e.id,
+      draft: { pick, meal: e.meal, quantityG: Number(e.quantity_g), loggedState: e.logged_state },
+    });
+  };
+
+  const closeSheet = () => {
+    setAdding(null);
+    setEditing(null);
   };
 
   /**
@@ -98,8 +123,10 @@ export default function DiarioScreen() {
     load();
   };
 
-  const confirmDelete = (e: NutritionLogMacros) =>
-    Alert.alert('Quitar del diario', `¿Quitar ${e.source_name}?`, [
+  // El menú hace de confirmación para quitar: sigue siendo un toque deliberado
+  // después del pulsado largo, como antes.
+  const openEntryMenu = (e: NutritionLogMacros) =>
+    Alert.alert(e.source_name, undefined, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Quitar',
@@ -110,6 +137,7 @@ export default function DiarioScreen() {
           else load();
         },
       },
+      { text: 'Editar', onPress: () => startEdit(e) },
     ]);
 
   const activeGoals = GOAL_FIELDS.filter((f) => goals[f] != null);
@@ -218,7 +246,7 @@ export default function DiarioScreen() {
                   </View>
 
                   {items.map((e) => (
-                    <TouchableOpacity key={e.id} style={s.entry} onLongPress={() => confirmDelete(e)}>
+                    <TouchableOpacity key={e.id} style={s.entry} onLongPress={() => openEntryMenu(e)}>
                       <View style={s.entryInfo}>
                         <Text style={s.entryName} numberOfLines={1}>{e.source_name}</Text>
                         <Text style={s.entryMeta}>
@@ -256,21 +284,24 @@ export default function DiarioScreen() {
             })}
 
             {entries.length > 0 && (
-              <Text style={s.footnote}>Mantené pulsado un renglón para quitarlo.</Text>
+              <Text style={s.footnote}>Mantené pulsado un renglón para editarlo o quitarlo.</Text>
             )}
           </>
         )}
       </ScrollView>
 
       <AddEntryModal
-        visible={adding !== null}
+        visible={adding !== null || editing !== null}
         products={products}
         recipes={recipes}
         defaultMeal={adding ?? 'desayuno'}
-        dayTotals={totals}
+        editing={editing?.draft ?? null}
+        // Al editar, el renglón ya está sumado en el día: la simulación parte
+        // de lo que queda sin él, o lo contaría dos veces.
+        dayTotals={editing ? sumTotals(entries.filter((e) => e.id !== editing.id)) : totals}
         goals={goals}
-        onClose={() => setAdding(null)}
-        onAdd={handleAdd}
+        onClose={closeSheet}
+        onSubmit={handleSubmit}
       />
     </View>
   );

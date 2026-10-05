@@ -11,8 +11,8 @@ import type { ResolvedGoals } from '@/lib/nutricion/objetivos';
 import { QuantityInput } from '@/components/nutricion/quantity-input';
 import { ImpactPreview } from '@/components/nutricion/impact-preview';
 import {
-  convertQuantity, emptyQuantity, formatAmount, quantityToGrams, supportsUnits,
-  unitName, unitWeight, type Quantity,
+  convertQuantity, emptyQuantity, formatAmount, quantityFromGrams, quantityToGrams,
+  supportsUnits, unitName, unitWeight, type Quantity,
 } from '@/lib/nutricion/unidades';
 import {
   baseState, convertState, describeQuantity, FOOD_STATES, fromBaseGrams, stateLabel,
@@ -27,16 +27,44 @@ export type Pick =
   | { kind: 'producto'; product: FoodProduct }
   | { kind: 'receta'; recipe: RecipeNutrition };
 
+/** Un renglón ya registrado, con lo necesario para reabrirlo en la hoja. */
+export type EntryDraft = {
+  pick: Pick;
+  meal: MealSlot;
+  /** Como está guardado: en la forma base del producto. */
+  quantityG: number;
+  loggedState: FoodState | null;
+};
+
+/**
+ * Lo guardado, devuelto a como se escribió: en la forma en que se pesó y, si
+ * fue en la base, en la unidad del producto. Los 100 g de huevo vuelven a ser
+ * 2 huevos y los 80 g de arroz crudo, los 200 g cocidos que vio la balanza.
+ */
+function storedQuantity(
+  grams: number,
+  state: FoodState | null,
+  product: FoodProduct | null
+): Quantity {
+  const base = baseState(product);
+  if (state && base && state !== base && supportsCooking(product)) {
+    return { value: formatAmount(fromBaseGrams(grams, state, product)), unit: 'g' };
+  }
+  return quantityFromGrams(grams, product);
+}
+
 type Props = {
   visible: boolean;
   products: FoodProduct[];
   recipes: RecipeNutrition[];
   defaultMeal: MealSlot;
+  /** Si viene, la hoja abre con ese renglón cargado para corregirlo. */
+  editing?: EntryDraft | null;
   /** Lo que el día ya lleva, para poder simular contra eso. */
   dayTotals: DayTotals | null;
   goals: ResolvedGoals;
   onClose: () => void;
-  onAdd: (params: {
+  onSubmit: (params: {
     pick: Pick;
     meal: MealSlot;
     /** Siempre en la forma base del producto: es lo que guarda la base. */
@@ -47,7 +75,7 @@ type Props = {
 };
 
 export function AddEntryModal({
-  visible, products, recipes, defaultMeal, dayTotals, goals, onClose, onAdd,
+  visible, products, recipes, defaultMeal, editing = null, dayTotals, goals, onClose, onSubmit,
 }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -73,17 +101,27 @@ export function AddEntryModal({
   /**
    * La hoja no se desmonta al cerrarse, así que sin este sync `meal` se queda
    * con la comida elegida la vez anterior y lo agregado cae en la sección
-   * equivocada. Al abrir mandan siempre los datos de la comida que se tocó.
+   * equivocada. Al abrir mandan siempre los datos de la comida que se tocó, o
+   * los del renglón que se está editando.
    */
   useEffect(() => {
     if (!visible) return;
-    setMeal(defaultMeal);
     setQuery('');
+    setSimulating(false);
+    if (editing) {
+      const product = editing.pick.kind === 'producto' ? editing.pick.product : null;
+      const shown = (supportsCooking(product) && editing.loggedState) || baseState(product);
+      setPick(editing.pick);
+      setMeal(editing.meal);
+      setState(shown);
+      setQty(storedQuantity(editing.quantityG, shown, product));
+      return;
+    }
+    setMeal(defaultMeal);
     setPick(null);
     setQty({ value: '', unit: 'g' });
     setState(null);
-    setSimulating(false);
-  }, [visible, defaultMeal]);
+  }, [visible, defaultMeal, editing]);
 
   const close = () => {
     setQuery(''); setPick(null); setQty({ value: '', unit: 'g' });
@@ -193,7 +231,7 @@ export function AddEntryModal({
     if (quantityG > MAX_QUANTITY_G) {
       return Alert.alert('Cantidad', `Son ${formatAmount(quantityG)} g de una sentada. Revisá la cantidad.`);
     }
-    onAdd({ pick, meal, quantityG, loggedState: supportsCooking(cooking) ? state : null });
+    onSubmit({ pick, meal, quantityG, loggedState: supportsCooking(cooking) ? state : null });
     close();
   };
 
@@ -233,7 +271,11 @@ export function AddEntryModal({
         <View style={[s.sheet, !pick && s.sheetSearching]}>
           <View style={s.header}>
             <TouchableOpacity onPress={close}><Text style={s.cancel}>Cancelar</Text></TouchableOpacity>
-            <Text style={s.title}>{pick ? 'Cantidad' : 'Agregar al diario'}</Text>
+            <Text style={s.title}>
+              {editing
+                ? pick ? 'Editar' : 'Cambiar alimento'
+                : pick ? 'Cantidad' : 'Agregar al diario'}
+            </Text>
             <View style={s.spacer} />
           </View>
 
@@ -336,7 +378,7 @@ export function AddEntryModal({
                   <Text style={s.secondaryText}>{simulating ? 'Ocultar' : 'Simular'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[s.primary, s.primaryGrow]} onPress={confirm}>
-                  <Text style={s.primaryText}>Agregar</Text>
+                  <Text style={s.primaryText}>{editing ? 'Guardar' : 'Agregar'}</Text>
                 </TouchableOpacity>
               </View>
 
