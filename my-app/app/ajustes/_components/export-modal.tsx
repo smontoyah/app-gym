@@ -24,7 +24,9 @@ const PRESETS: Preset[] = [
   { label: 'Últimos 30 días', from: () => addDays(todayStr(), -30), to: todayStr },
   { label: 'Últimos 90 días', from: () => addDays(todayStr(), -90), to: todayStr },
   { label: 'Este mes', from: startOfMonthStr, to: todayStr },
-  { label: 'Todo', from: () => '1900-01-01', to: () => '2999-12-31' },
+  // Hasta hoy: las comidas planificadas para los próximos días no salen en
+  // «Todo»; un rango escrito a mano sí las alcanza.
+  { label: 'Todo', from: () => '1900-01-01', to: todayStr },
 ];
 
 type ExportModalProps = {

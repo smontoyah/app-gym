@@ -33,6 +33,10 @@ Convierte lo que pidió el usuario a dos fechas ISO. Si no dijo rango, pregunta 
 no asumas "el último mes". Ojo con la fecha de hoy: `logged_on` es fecha **local**
 del usuario, no UTC.
 
+`:to` nunca pasa de hoy: el diario deja registrar comidas planificadas hasta 7
+días adelante, y en el reporte se leerían como algo que ya se comió. Si piden un
+rango que termina en el futuro ("este mes"), se corta en hoy y se dice en el pie.
+
 ### 2. Traer los datos
 
 Vía la herramienta MCP de Supabase `execute_sql`. Sustituye `:from` y `:to`.

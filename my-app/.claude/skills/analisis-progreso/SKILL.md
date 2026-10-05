@@ -53,6 +53,11 @@ reporta aparte. Mezclarlos hunde la media y hace mentir al análisis.
 **f) El día en curso no promedia.** `logged_on = hoy` está a medias por
 definición.
 
+**g) Lo que viene después de hoy es un plan, no lo que se comió.** El diario
+deja registrar comidas hasta 7 días adelante. `:hasta` nunca pasa de hoy en
+Bogotá (`(now() at time zone 'America/Bogota')::date`), y cualquier consulta
+sin rango (`min`/`max`, conteos totales) lleva ese mismo corte.
+
 ---
 
 ## 2. Entrenamiento: la regla que más se ha equivocado

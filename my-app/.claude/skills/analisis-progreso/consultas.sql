@@ -16,10 +16,17 @@
 -- ---------------------------------------------------------------------------
 
 -- A1. Rango y volumen de cada fuente
+--     Nutrición corta en hoy (Bogotá): el diario admite comidas planificadas
+--     hasta 7 días adelante, y sin el corte `nutri_hasta` sale en el futuro.
+--     `nutri_planificados` cuenta esos días, por si hace falta mencionarlos.
 select
   (select min(logged_on)   from nutrition_logs  where user_id = :'uid') as nutri_desde,
-  (select max(logged_on)   from nutrition_logs  where user_id = :'uid') as nutri_hasta,
-  (select count(distinct logged_on) from nutrition_logs where user_id = :'uid') as nutri_dias,
+  (select max(logged_on)   from nutrition_logs  where user_id = :'uid'
+      and logged_on <= (now() at time zone 'America/Bogota')::date) as nutri_hasta,
+  (select count(distinct logged_on) from nutrition_logs where user_id = :'uid'
+      and logged_on <= (now() at time zone 'America/Bogota')::date) as nutri_dias,
+  (select count(distinct logged_on) from nutrition_logs where user_id = :'uid'
+      and logged_on >  (now() at time zone 'America/Bogota')::date) as nutri_planificados,
   (select min(workout_date) from workout_logs   where user_id = :'uid') as gym_desde,
   (select max(workout_date) from workout_logs   where user_id = :'uid') as gym_hasta,
   (select count(distinct workout_date) from workout_logs where user_id = :'uid') as gym_sesiones,

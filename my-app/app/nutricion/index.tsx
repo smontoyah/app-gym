@@ -7,8 +7,9 @@ import type { AppColorScheme } from '@/constants/theme';
 import type {
   FoodProduct, FoodState, GoalProfile, MealSlot, NutritionLogMacros, RecipeNutrition,
 } from '@/types/database';
-import { addDays, formatLong, isToday } from '@/lib/date';
+import { addDays, formatLong } from '@/lib/date';
 import { useAnchoredDate } from '@/hooks/use-today';
+import { canGoForward, dayTitle } from '@/lib/nutricion/dia';
 import { MacroBar } from '@/components/nutricion/macro-bar';
 import { AddEntryModal, type Pick } from '@/components/nutricion/add-entry-modal';
 import {
@@ -27,7 +28,7 @@ export default function DiarioScreen() {
 
   // Igual que en Ejercicio: el día se re-ancla al reloj del teléfono cuando la
   // app vuelve al frente, para no seguir sumando comidas al día de ayer.
-  const { dateStr: day, setDateStr: setDay } = useAnchoredDate();
+  const { dateStr: day, setDateStr: setDay, today } = useAnchoredDate();
   const [entries, setEntries] = useState<NutritionLogMacros[]>([]);
   const [totals, setTotals] = useState<DayTotals | null>(null);
   const [goals, setGoals] = useState<ResolvedGoals>({ ...EMPTY_RESOLVED });
@@ -115,6 +116,10 @@ export default function DiarioScreen() {
   // Sin pesaje, los macros por kilo no se pueden resolver y sus barras faltan.
   const missingForWeight = weightKg === null && activeGoals.length < GOAL_FIELDS.length;
   const catalogIsEmpty = products.length === 0 && recipes.length === 0;
+  const isToday = day === today;
+  // Hoy y mañana llevan nombre: debajo va la fecha para no perder cuál es.
+  const isNamedDay = isToday || day === addDays(today, 1);
+  const canForward = canGoForward(day, today);
 
   return (
     <View style={s.flex}>
@@ -124,14 +129,16 @@ export default function DiarioScreen() {
             <Text style={s.arrow}>‹</Text>
           </TouchableOpacity>
           <View style={s.dayLabel}>
-            <Text style={s.dayText}>{isToday(day) ? 'Hoy' : formatLong(day)}</Text>
-            {isToday(day) ? <Text style={s.daySub}>{formatLong(day)}</Text> : null}
+            <Text style={s.dayText}>{dayTitle(day, today)}</Text>
+            {isNamedDay ? <Text style={s.daySub}>{formatLong(day)}</Text> : null}
           </View>
+          {/* Hacia adelante se llega hasta una semana, para dejar planificadas
+              las comidas. */}
           <TouchableOpacity
             onPress={() => setDay((d) => addDays(d, 1))}
             hitSlop={12}
-            disabled={isToday(day)}>
-            <Text style={[s.arrow, isToday(day) && s.arrowOff]}>›</Text>
+            disabled={!canForward}>
+            <Text style={[s.arrow, !canForward && s.arrowOff]}>›</Text>
           </TouchableOpacity>
         </View>
 
@@ -159,7 +166,7 @@ export default function DiarioScreen() {
               {activeGoals.length === 0 ? (
                 <>
                   <Text style={s.noGoalTitle}>
-                    {totals ? Math.round(totals.energy_kcal) : 0} kcal hoy
+                    {totals ? Math.round(totals.energy_kcal) : 0} kcal{isToday ? ' hoy' : ''}
                   </Text>
                   <TouchableOpacity onPress={() => router.push('/nutricion/objetivos')}>
                     <Text style={s.noGoalLink}>Definí tu objetivo diario para ver el avance →</Text>

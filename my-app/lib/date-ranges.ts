@@ -18,7 +18,6 @@ export type DateRange = {
 };
 
 const ALL_FROM = '1900-01-01';
-const ALL_TO = '2999-12-31';
 
 /** Ventana de N días que termina en `today` (ese día incluido). */
 function lastDays(days: number, today: string): { from: string; to: string } {
@@ -39,7 +38,9 @@ export function buildRange(key: RangeKey, today: string = todayStr()): DateRange
     case '90d':
       return { key, label: '90 días', title: 'Últimos 90 días', ...lastDays(90, today) };
     case 'all':
-      return { key, label: 'Todo', title: 'Todo el historial', from: ALL_FROM, to: ALL_TO };
+      // «Todo» también termina hoy: el diario admite comidas planificadas para
+      // los días que vienen, y no son historial hasta que llega su día.
+      return { key, label: 'Todo', title: 'Todo el historial', from: ALL_FROM, to: today };
   }
 }
 
