@@ -7,6 +7,80 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-10-05 — Higiene de datos del gimnasio: cargas mal ingresadas
+
+Primera auditoría de `workout_logs` (consultas G1–G2). Disparada porque él
+mismo detectó que el tríceps en polea con barra estaba en lb.
+
+### El mecanismo de error
+
+La unidad kg/lb se elige **por ejercicio y se guarda en el teléfono**
+(`app/gym/ejercicio/_lib/unit-prefs.ts`, AsyncStorage), no en la base. Si el
+toggle queda en kg y se teclea el número del stack en lb, se guarda el número
+crudo como kg. La base no puede distinguirlo: solo el número delata.
+
+Máquinas que él captura en lb (al menos a veces): tríceps polea con barra,
+abducción, extensión de rodilla, leg curl sentado y acostado, aducción, y
+mancuernas de 40/45 lb en press militar.
+
+### Corregido
+
+- **Tríceps polea con barra** 7, 14 y 21-sep: 36 → 16,33 y 43 → 19,5 kg
+  (12 filas). Confirmado por él. Respaldo de ids y valores viejos en el
+  mensaje de esa sesión. El 31-ago (18 × 4) **se deja como está**, decisión suya.
+
+- **Rear delt unilateral en polea** 10 y 17-sep (6 series, 39/45 kg): los hizo
+  en la cabina. Movidas a "Rear delt en cabina" (`a8ddd006`); el unilateral
+  arranca el 23-sep en 12,5 kg. En el Google Sheets de Ciro los valores se
+  dejaron en la fila del unilateral (esa pestaña no tiene fila de cabina) con
+  una **nota** en B31 y F31 — una sincronización futura los verá como "datos
+  que la app no tiene": es intencional.
+
+### Corrección a mí mismo: los saltos ×2 eran reales
+
+Marqué como probable error leg curl acostado (18 → 42,5 kg, "casi seguro lb"),
+extensión de rodilla (~25 → 52–66 kg) y abducción (33–43 → 66–79 kg). **Los
+tres son reales**: al empezar CARGA se dio cuenta de que venía usando muy poca
+carga y subió de golpe. Lo mismo los menores (talón 30 × 11, curl de muñeca
+5 × 26, tríceps unilateral 14 kg).
+
+Lección: **un salto grande al inicio de una fase nueva no es firma de error**.
+El "mismo RPE con el doble de carga" que usé como argumento solo prueba que el
+RPE de agosto estaba sobrestimado. La firma confiable de lb-como-kg sigue
+siendo la del tríceps: él lo confirma, o el valor *baja* a la línea de las
+sesiones vecinas al dividir por 2,2. Ante un salto al inicio de fase,
+**preguntar antes de sugerir corrección**, y no llamarlo "casi seguro".
+
+### Sustituciones de máquina: el dato era bueno, el ejercicio no
+
+- **Press militar**: desde el 14-sep es **en máquina**. Creado «Press militar en
+  máquina» (`a345e6b5`, Hombro, carga), movidas las 9 series del 14, 21 y
+  29-sep, y la fila del martes en `routines` apunta ahora a la máquina. El de
+  mancuernas termina el 7-sep. Sin `dataset_id` todavía (sin ilustración).
+- **Press de banca 29-sep** (35 × 3): fue en máquina. Movido a «Press de pecho
+  en máquina» (`abcc6f41`, el del sábado). La rutina del martes sigue con barra.
+
+Patrón a vigilar: cuando el e1RM de un ejercicio salta y él confirma que la
+carga es real, preguntar **si cambió de máquina**. Mezclar dos movimientos en
+un mismo historial infla el récord y la carga sugerida igual que un error de
+unidad.
+
+### Revisado y limpio
+
+Peso corporal (ninguno a >3 kg de la mediana), cardio, RPE (todo 5–10),
+duraciones de tiempo. Leg curl sentado y aducción mezclan kg y lb pero las
+magnitudes son coherentes. Hip thrust y press de banca saltan por sumar discos:
+legítimo.
+
+### Implicación
+
+Un error de unidad infla el e1RM y el récord del ejercicio en la app, y la
+carga sugerida (`previous_sets`) lo arrastra a la sesión siguiente. Se replica
+también en el Google Sheets de Ciro, que se llena desde la base: toda
+corrección va a los dos lados.
+
+---
+
 ## 2026-09-22 — El whey de Sin Intermediarios: la tabla era de la bebida, no del polvo
 
 `WHEY PROTEÍNA` de Sin Intermediarios (`97550f0c`) entró con **65 kcal y 12 g de

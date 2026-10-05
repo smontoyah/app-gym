@@ -477,3 +477,57 @@ select name, sesiones, u3 as ultimos_3_e1rm, rpe_ultima,
     else 'progresando'
   end as lectura
 from v order by cambio;
+
+-- ---------------------------------------------------------------------------
+-- G. HIGIENE DE DATOS DEL GIMNASIO — cargas mal ingresadas
+-- ---------------------------------------------------------------------------
+-- La unidad kg/lb se elige POR EJERCICIO y vive en el teléfono (AsyncStorage),
+-- no en la base: no hay forma de saber con qué unidad se tecleó una serie salvo
+-- por el número. Firma de cada caso (ver bitácora 2026-10-05):
+--   · lb tecleadas en modo kg → salto ×2,2 y valor redondo "de stack en lb"
+--     (42,5 · 43 · 36) guardado como kg. Corrección: lib/units.ts → toKg.
+--   · salto ×2,0 exacto → NO es unidad (sería 2,2): máquina distinta o lectura
+--     distinta del stack. Preguntar, no corregir.
+--   · salto ×3 contra el valor típico de OTRO ejercicio → anotado en el
+--     ejercicio equivocado.
+-- Un salto aquí NO es error por sí solo: hip thrust y press de banca saltan al
+-- sumar discos, y al arrancar CARGA (sep-2026) duplicó varias cargas a
+-- propósito porque venía usando muy poco — con el mismo RPE. Un salto al
+-- inicio de una fase se PREGUNTA, no se da por error.
+
+-- G1. Qué ejercicios se capturan (a veces) en lb: kg con decimales raros que en
+--     lb dan múltiplo de 0,5. Ojo: toKg "ordena" algunas conversiones a 1
+--     decimal (65 lb → 29,5; 43 lb → 19,5), que caen como kg redondos.
+with c as (
+  select e.name, w.weight,
+         abs(w.weight / 0.45359237 - round(w.weight / 0.45359237 * 2) / 2) < 0.06
+           and w.weight * 2 <> round(w.weight * 2) as capturada_en_lb
+  from workout_logs w join exercises e on e.id = w.exercise_id
+  where w.user_id = :'uid' and w.weight > 0
+)
+select name, count(*) series, count(*) filter (where capturada_en_lb) en_lb
+from c group by name having count(*) filter (where capturada_en_lb) > 0
+order by en_lb desc;
+
+-- G2. Saltos entre sesiones seguidas del mismo ejercicio (≥ ×1,35 o ≤ ×0,74)
+--     y series que se salen de la mediana de su propia sesión.
+with s as (
+  select e.name, w.workout_date d, w.set_number, w.weight
+  from workout_logs w join exercises e on e.id = w.exercise_id
+  where w.user_id = :'uid' and e.tracking_mode = 'carga' and w.weight > 0
+), sess as (
+  select name, d, max(weight) top, percentile_cont(0.5) within group (order by weight) med, count(*) n
+  from s group by name, d
+), seq as (
+  select *, lag(top) over w prev_top, lag(d) over w prev_d
+  from sess window w as (partition by name order by d)
+)
+select 'salto' tipo, name, prev_d || ' → ' || d cuando,
+       prev_top || ' → ' || top || ' kg (×' || round(top / prev_top, 2) || ')' detalle
+from seq where prev_top > 0 and (top / prev_top >= 1.35 or top / prev_top <= 0.74)
+union all
+select 'serie fuera', s.name, s.d::text,
+       'serie ' || s.set_number || ': ' || s.weight || ' kg vs mediana ' || round(x.med::numeric, 2)
+from s join sess x using (name, d)
+where x.n >= 3 and (s.weight / x.med >= 1.25 or s.weight / x.med <= 0.70)
+order by 1, 2, 3;
