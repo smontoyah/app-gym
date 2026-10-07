@@ -94,7 +94,7 @@ with d as (
   from nutrition_log_macros m
   where m.user_id = :'uid'
     and m.logged_on between :'desde' and :'hasta'
-    and m.logged_on < current_date
+    and m.logged_on < (now() at time zone 'America/Bogota')::date
   group by m.logged_on
 -- La vista resuelve los g/kg contra el último pesaje: desde 2026-09-21 la
 -- tabla guarda ratios, no gramos. Los nombres de columna no cambian.
@@ -404,10 +404,12 @@ with dia as (
   from nutrition_log_macros m
   where m.user_id = :'uid'
     and m.logged_on between :'desde' and :'hasta'
-    and m.logged_on < current_date
+    and m.logged_on < (now() at time zone 'America/Bogota')::date
   group by m.logged_on
 ),
-g as (select * from nutrition_goals where user_id = :'uid'),
+-- La tabla guarda g/kg desde 2026-09-21 (ya no tiene protein_g): leer la vista.
+g as (select * from nutrition_goals_current
+       where user_id = :'uid' and profile = 'normal'),
 pes as (
   select count(*) n, round(min(weight_kg),2) minimo,
          round(max(weight_kg),2) maximo, round(avg(weight_kg),2) media
@@ -424,7 +426,7 @@ select
   round((select avg(kcal) from dia where tiempos = 4) - g.energy_kcal) as kcal_vs_meta,
   round((select avg(prot) from dia where tiempos = 4))  as prot_prom,
   g.protein_g                                           as prot_meta,
-  round((select avg(prot) from dia where tiempos = 4) / 78.09, 2) as prot_g_por_kg,
+  round((select avg(prot) from dia where tiempos = 4) / g.weight_kg, 2) as prot_g_por_kg,
   round((select avg(fib) from dia where tiempos = 4))   as fibra_prom,
   g.fiber_g                                             as fibra_meta,
   -- métricas de PROCESO de la fase de calibración

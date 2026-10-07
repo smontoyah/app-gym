@@ -7,6 +7,96 @@ Orden: lo más reciente arriba.
 
 ---
 
+## 2026-10-06 — Cierre del protocolo de calibración: funcionó. Gasto aparente ~2.100.
+
+Análisis consolidado de todo (18-ago → 5-oct). Nota completa en el vault:
+`00 - Inbox/Progreso fitness - Análisis consolidado 2026-10-06.md`.
+
+### Lo que no estaba en esta bitácora (pasó fuera de la skill)
+
+- **2026-09-29: meta a 1.700 kcal** (2,2 P · 1,68 C · 0,72 G g/kg · 30 fibra),
+  decidida en la nota del vault *Recomposición corporal - Análisis 2026-09-29*.
+  Objetivo ~15 % de grasa hacia el ~3-dic. §7 de la skill actualizado.
+- **2026-10-01: % de grasa de trabajo ~18,5 %** (nota *Grasa corporal por
+  pliegues*), compatible con el 19–20 % de aquí.
+- Esa nota usó **9.400 kcal/kg** (grasa pura) para pasar kilos a déficit; aquí
+  se usa 7.700. Con los mismos kilos da ~20 % más de déficit. Al comparar
+  cifras de las dos fuentes, convertir antes de comparar.
+
+### El hallazgo: el registro se cerró, y se puede medir sin saber el gasto
+
+| | 18-ago → 4-sep | 5-sep → 28-sep |
+|---|---|---|
+| kcal anotadas (días con des+alm+cena) | 1.636 | 1.769 |
+| Tendencia de peso | +0,04 kg/sem (IC −0,16 a +0,24) | −0,32 kg/sem (IC −0,47 a −0,16) |
+| Días con aceite anotado | 1 de 17 | 23 de 24 |
+
+Anotado **+130**, balance real **−300 a −390**. El hueco registro↔ingesta se
+cerró **~430–520 kcal/día** (IC amplio, ~190–710). La cifra solo supone que el
+gasto no cambió entre fases: no depende de cuál sea. El cardio nuevo explica
+~50. El spray bajó la ingesta *real* y anotar todo subió la *registrada*: las
+dos cosas empujan igual.
+
+### Constantes calibradas
+
+| Constante | Valor | Nota |
+|---|---|---|
+| **Gasto aparente** (anotado + báscula) | **~2.100** (IC 1.900–2.300) | Sustituye al 2.050–2.380. Es el número contra el que se fija la meta *en la app* |
+| PAL implícito | ~1,22 sobre Mifflin 1.720 | Bajo para su perfil. O NEAT bajo o un resto de subregistro de 150–300; no separables, y no hace falta |
+| Ruido de la báscula (SD residual) | **0,35–0,39 kg** en sept | Subió desde 0,26 en ago. Más pesajes por la misma resolución |
+| Pico del 5-sep (78,9) | Mueve la pendiente de −0,23 a −0,32 | Reportar siempre con y sin él |
+| Cardio registrado desde 5-sep | 195 min / 32 días ≈ 50 kcal/día | Ya dentro del gasto aparente |
+
+### Correcciones al método
+
+- **Día completo = desayuno + almuerzo + cena**, no los 4 tiempos. En sept los
+  días sin snack promedian *más* kcal que el resto (19-sep 2.034, 25-sep
+  1.982): no son días mal medidos. Con 4 tiempos, los promedios cambian <20
+  kcal. La correlación kcal↔Δpeso da +0,38 (3 principales) y +0,50 (4 tiempos);
+  con todos los días, ~0.
+- **`consultas.sql` F1 estaba roto** desde que `nutrition_goals` pasó a g/kg
+  (leía `g.protein_g`, que ya no existe; además dividía por 78,09 fijo).
+  Corregido: lee `nutrition_goals_current` (perfil normal) y divide por su
+  `weight_kg`. B2 y F1 cortaban "hoy" con `current_date` (UTC): ahora con la
+  fecha de Bogotá.
+
+### Entrenamiento (bloque CARGA, 7-sep → ~11-oct)
+
+- 4/4 sesiones durante 6 semanas seguidas. RPE medio 8,2–8,6 contra objetivo 8.
+- e1RM: 11 suben, 10 planos, 2 bajan, de 23 ejercicios. Fuerza sostenida en
+  déficit con proteína 2,1–2,2 g/kg: la mejor señal disponible de que no se
+  pierde músculo.
+- **Fatiga con la misma carga:** pull down (RPE 7,7 → 9,0) y extensión de
+  rodilla (último RPE 9,7). **Subcargados:** curl predicador (RPE 7,7) y leg
+  curl acostado (RPE bajando).
+- **Preguntas, no correcciones:** press de banca 21-sep (1.ª serie 30 × 11 @ 9
+  tras 20 × 11 @ 10 la semana anterior: ¿tecleo?) y prensa 160 → 140 con RPE
+  7–8 (¿rango, pies o máquina?).
+
+### Hechos nuevos
+
+- **No hay pesajes desde el 1-oct ni comida del 2 al 4-oct** (vie–dom). Ese
+  viernes 2 sí entrenó. Los huecos de sept/oct se concentran en fines de semana.
+- Día delator nuevo: **24-sep**, 972 kcal (sin cena ni snack) y +0,3 kg a la
+  mañana siguiente. Mismo patrón que el 27-ago.
+- Fase 2 (1.700, 4 días): 1.616 kcal con **grasa en 47 g (0,61 g/kg)**. Lo que
+  falta para llegar a 1.700 es grasa, no carbohidrato.
+- Ciclado de carbohidratos: no se usa (sin perfil `ciclado` ni `nutrition_days`).
+
+### Decisión dada
+
+**Esperar.** 1.700 sin tocar hasta el ~20-oct, con pesaje diario y registro de
+fines de semana. Para ese día espera media semanal de 76,2–76,5 la semana del
+12-oct y de 75,8–76,1 la del 19-oct.
+
+### Preguntas abiertas
+
+1. ¿Qué comió del 2 al 4-oct? ¿Se pesó sin anotar?
+2. Press de banca 21-sep: ¿30 o 20 kg en la 1.ª serie?
+3. Prensa: ¿por qué 160 → 140?
+
+---
+
 ## 2026-10-05 — Higiene de datos del gimnasio: cargas mal ingresadas
 
 Primera auditoría de `workout_logs` (consultas G1–G2). Disparada porque él
@@ -28,6 +118,10 @@ mancuernas de 40/45 lb en press militar.
 - **Tríceps polea con barra** 7, 14 y 21-sep: 36 → 16,33 y 43 → 19,5 kg
   (12 filas). Confirmado por él. Respaldo de ids y valores viejos en el
   mensaje de esa sesión. El 31-ago (18 × 4) **se deja como está**, decisión suya.
+- **Reincidió el 5-oct** (36 / 43 / 43 / 43): corregido igual, con su visto
+  bueno. El selector de unidad de esa tarjeta en su teléfono se está quedando
+  en kg — mientras no lo cambie a lb, revisar este ejercicio en cada
+  sincronización.
 
 - **Rear delt unilateral en polea** 10 y 17-sep (6 series, 39/45 kg): los hizo
   en la cabina. Movidas a "Rear delt en cabina" (`a8ddd006`); el unilateral

@@ -97,7 +97,7 @@ Lo mismo aplica a `training_phases`: describe el bloque vigente
 | `nutrition_logs` | Un renglón por alimento comido. `quantity_g` **siempre** en gramos de la forma base del producto | `product_id` y `recipe_id` son ambos nullable; un renglón sin ninguno suma 0 en silencio |
 | `nutrition_log_macros` | **Úsala.** Vista que resuelve macros por renglón, productos y recetas | — |
 | `food_products` | Catálogo. Macros **por 100 g** de la forma que declara `base_state` | `verified` se pone en `true` cada vez que se guarda el formulario: **no sirve como marca de "revisado"**. Para marcar un estimado, usa `note` en el log |
-| `nutrition_goals` | Meta vigente. **Una fila por perfil** (`normal` / `ciclado`), con los macros en **g/kg** | No la leas directo: usa la vista `nutrition_goals_current`, que resuelve los g/kg contra el último pesaje y devuelve gramos con los nombres de siempre. Es una meta *puesta a mano*, no un gasto medido. **Los 2.000 kcal son deliberados y correctos — no proponer subirlos a los 2.399 de Ciro.** Ver §7 |
+| `nutrition_goals` | Meta vigente. **Una fila por perfil** (`normal` / `ciclado`), con los macros en **g/kg** | No la leas directo: usa la vista `nutrition_goals_current`, que resuelve los g/kg contra el último pesaje y devuelve gramos con los nombres de siempre. Es una meta *puesta a mano*, no un gasto medido. **La meta vigente (1.700 desde el 2026-09-29) es deliberada — no proponer subirla a los 2.399 de Ciro.** Ver §7 |
 | `nutrition_days` | Qué días fueron de ciclado de carbos | **Sin fila = día normal**, que es la mayoría. Un día de ciclado se compara contra el perfil `ciclado`, no contra el habitual |
 | `body_weight_logs` | Peso. `measured_at` es timestamptz | El árbitro de todo. Ver §5 |
 | `workout_logs` | Una fila **por serie**: `reps`, `weight`, `duration_seconds`, `rpe` | `rpe` puede ser null en parte de las series; es normal. **`reps` y `weight` son null en los ejercicios de cardio** (`exercises.tracking_mode = 'tiempo'`), que guardan `duration_seconds`. Ojo: un `weight = 0` sí es un dato real — es un ejercicio a peso corporal |
@@ -322,14 +322,16 @@ depende de cuánto aceite llevó el plato y de si comió por fuera.
 
 | | Valor | Razón |
 |---|---|---|
-| Calorías | **1.850** | Elegida para que el déficit sea detectable **aunque el gasto esté en el extremo bajo** del rango (ver abajo) |
-| Proteína | **170 g** | 2,18 g/kg de peso; ~2,7 g/kg de masa magra. **Es la proteccion contra perder musculo en deficit: no bajarla** |
-| Carbohidratos | **160 g** | El resto del presupuesto, tras proteína y el piso de grasa |
-| Grasa | **63 g** | Piso hormonal 0,81 g/kg. **No bajar de aquí.** Toda de alimentos enteros — huevo, aguacate, almendra, carne. Nada de aceite libre: para cocinar va spray (~2 g/día) |
+| Calorías | **1.700** | Déficit de ~400 contra el gasto aparente medido (~2.100); da señal en casi todo el rango (ver bitácora 2026-10-06) |
+| Proteína | **2,2 g/kg** (~170 g) | ~2,7 g/kg de masa magra. **Es la proteccion contra perder musculo en deficit: no bajarla** |
+| Carbohidratos | **1,68 g/kg** (~130 g) | El resto del presupuesto, tras proteína y el piso de grasa |
+| Grasa | **0,72 g/kg** (~56 g) | Piso: **no bajar de ~0,6–0,7 g/kg (~50 g)**. Toda de alimentos enteros — huevo, aguacate, almendra, carne. Nada de aceite libre: para cocinar va spray (~2 g/día) |
 | Fibra | **30 g** | Venía sin meta y en 15 g reales |
 
-Puesta el 2026-09-05 (reemplaza los 2.000 del 4-sep). **No moverla hasta el
-corte de las 4 semanas.**
+Puesta el 2026-09-29 (reemplaza los 1.850 del 5-sep, que a su vez reemplazaron
+los 2.000 del 4-sep). Los macros viven en g/kg: leer `nutrition_goals_current`.
+Detalle y proyección en la nota del vault *Recomposición corporal - Análisis
+2026-09-29*. **No moverla antes de la revisión del ~2026-10-20.**
 
 > ### ⚠ Regla que nació de un error: nunca presentar un déficit puntual
 >
@@ -339,13 +341,18 @@ corte de las 4 semanas.**
 > propuesto no era menor en kcal reales que el que ya comía.
 >
 > **Obligatorio: antes de proponer cualquier objetivo, tabular el déficit y la
-> pérdida a 4 semanas en TODO el rango de gasto (2.050 · 2.150 · 2.250 · 2.380).**
+> pérdida a 4 semanas en TODO el rango de gasto (1.900 · 2.000 · 2.100 · 2.200 · 2.300,
+> el rango medido el 2026-10-06; antes era 2.050–2.380).**
 > Si el extremo bajo no produce una señal detectable sobre 0,25 kg de ruido
 > (≈0,8 kg en 4 semanas), **el objetivo está demasiado alto**: hay que bajarlo
 > hasta que el peor caso también responda. Un plan que solo funciona si acerté
 > no sirve — su modo de falla es otro mes sin información.
 
-### Protocolo vigente: 4 semanas de calibración (desde el 2026-09-04)
+### Protocolo de calibración de 4 semanas (2026-09-04 → 10-02) — CERRADO
+
+> Cerrado el 2026-10-06 con resultado positivo: el registro se cerró (aceite
+> anotado 23 de 24 días) y el peso pasó de plano a −0,3 kg/semana. Se deja como
+> referencia de método. Ver bitácora 2026-10-06.
 
 **Semanas 1–2 — cerrar el registro.** El objetivo NO es bajar de peso, es
 calibrar el instrumento: anotar el aceite siempre, toda comida por fuera como
