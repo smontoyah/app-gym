@@ -28,6 +28,34 @@
  * movimiento, y conviene saberlo antes que descubrirlo mirando el gif.
  */
 export const MAPA = {
+  // ══ Fase IMPACTO (S.ASCEN | RIR 1) — octubre 2026 ══════════════════════════
+  // Emparejados contra TODOS los fotogramas de cada gif, no solo contra
+  // `images/*.jpg`: la miniatura del PDF suele ser otro fotograma de la misma
+  // animación, y comparando un solo cuadro no aparecían ni los que sí están
+  // (la plancha lateral es el fotograma 6 de 0464, no su portada).
+
+  // ── Nuevos ──
+  'Abducción de cadera con polea': '0710', // ≈ side hip abduction — el mismo movimiento acostado; el dataset solo trae la ADUCCIÓN en polea (0168), que es el opuesto, y 1427 «outer hip abductor» es un estiramiento
+  'Estocada en smith con déficit': '0769', // ≈ smith sprint lunge — la zancada en Smith; sin el escalón del déficit y los pasos hablan de la variante sprint
+  'Crunch de polea arrodillado': '0175', // cable kneeling crunch
+  'Push up': '0662', // push-up
+  'Fondos en máquina': '1451', // lever seated dip — la misma máquina del PDF
+  'Abdominales en banco declinado': '0277', // decline crunch — el dibujo del PDF es este, no el sit-up (0282)
+  'Remo Inclinado con Barra (pronación)': '0027', // barbell bent over row
+  'Lat Pulldown con agarre supino cerrado': '0245', // cable underhand pulldown
+  'Curl de bíceps con mancuernas en banco inclinado': '0318', // dumbbell incline curl (el PDF trae un fotograma de video)
+  'Press Pallof en media rodilla con polea': '0979', // ≈ band horizontal pallof press — de pie y con banda; el de Ciro es en media rodilla con polea
+  'Peso muerto sumo con kettlebell': '2808', // ≈ dumbbell sumo pull through — postura sumo con UNA pesa entre las piernas, como el PDF; más cerca que la barra (0117)
+  'Ab Rollout con apoyo de pared': '0857', // ≈ wheel rollerout — sin la pared que corta el recorrido
+  'Curl de bíceps con mancuernas (neutro)': '0312', // dumbbell hammer curl v. 2 (las dos a la vez, como el PDF)
+  'Plancha lateral con elevación de brazo': '0464', // front plank with twist — sus fotogramas 4-8 son el dibujo del PDF: sobre la mano, brazo al techo
+
+  // ── Vuelven de AJUSTE 1, renombrados ──
+  'Press de banca inclinado con mancuernas': '0314', // dumbbell incline bench press (antes «Press inclinado con mancuernas»)
+  'Rear Delt Fly en máquina': '0601', // lever seated reverse fly (parallel grip) (antes «Rear delt en cabina»)
+  'Rear delt con mancuernas en banco inclinado': '0326', // dumbbell incline rear lateral raise
+  'Curl de bíceps con barra de pie (supinación)': '0031', // barbell curl (antes «Curl de bíceps con barra (supinación)»)
+
   // ══ Fase CARGA (DS | RIR 2) — septiembre 2026 ══════════════════════════════
 
   // ── Pierna ──
@@ -52,8 +80,13 @@ export const MAPA = {
   'Fondos en paralelas': '0251', // chest dip
 
   // ── Hombro ──
-  'Press militar con mancuernas en banco inclinado': '0404', // dumbbell seated shoulder press (parallel grip)
-  'Elevaciones laterales con mancuernas': '0334', // dumbbell lateral raise
+  // En IMPACTO se renombraron: eran «Press militar con mancuernas en banco
+  // inclinado» y «Elevaciones laterales con mancuernas».
+  'Press militar (neutro) con mancuernas sentado': '0404', // dumbbell seated shoulder press (parallel grip)
+  'Vuelos laterales con mancuernas': '0334', // dumbbell lateral raise
+  // El reemplazo que se hizo desde el 14-sep; no sale en ningún PDF, así que no
+  // hay miniatura con qué comparar: es la de asiento con discos.
+  'Press militar en máquina': '0587', // lever military press
   'Elevaciones frontales con cuerda en polea baja (de pie)': '0162', // cable front raise
   // Estos dos estuvieron cruzados una vez: los nombres del dataset engañan y
   // hay que mirar el dibujo. `0233 cable standing rear delt row (with rope)`
@@ -81,7 +114,7 @@ export const MAPA = {
   'Curl de bíceps predicador en máquina': '0592', // lever preacher curl
   'Curl de bíceps con polea (barra)': '0868', // cable curl
   'Curl bayesian en polea': '0190', // ≈ cable one arm curl — el bayesian es con el cable por detrás del cuerpo
-  'Curl de muñeca sentado con barra EZ': '0125', // ≈ barbell wrist curl v. 2 — sentado con antebrazos en los muslos; el dataset no trae la barra EZ
+  'Curl de muñeca con barra EZ sentado': '0125', // ≈ barbell wrist curl v. 2 — sentado con antebrazos en los muslos; el dataset no trae la barra EZ
 
   // ══ Fases anteriores ═══════════════════════════════════════════════════════
   // Siguen en el catálogo con su historial: un ejercicio no se borra, deja de
@@ -90,11 +123,10 @@ export const MAPA = {
   'Sentadilla sumo con mancuerna': '1760', // ≈ dumbbell goblet squat — el dataset no trae el sumo con mancuerna
   'Estocadas con mancuernas (paso hacia atrás)': '0381', // dumbbell rear lunge
   'Plantiflexión en máquina (rodilla ligeramente flexionada)': '0605', // lever standing calf raise
-  'Press inclinado con mancuernas': '0314', // dumbbell incline bench press
-  'Rear delt en cabina': '0601', // lever seated reverse fly (parallel grip)
-  'Rear delt con mancuernas en banco inclinado': '0326', // dumbbell incline rear lateral raise
-  'Curl de bíceps con barra (supinación)': '0031', // barbell curl
   'Abdominales a 30° en colchoneta': '0274', // crunch floor
+
+  // Creado a mano desde la app.
+  'Caminata inclinada LISS': '3666', // walking on incline treadmill
 
   // De otro usuario de la app, no de Sebastián. Corriendo el script con
   // APP_EMAIL/APP_PASSWORD la RLS lo esconde y sale reportado como «no existe

@@ -224,6 +224,7 @@ catálogo de `exercises` se siembra por upsert y `workout_logs` no se toca.
 |---|---|
 | `ajuste1_2026-08-03.sql` | AJUSTE 1 · RPE 7/10 · RIR 3 · super series · 4 días |
 | `carga_ds_rir2_2026-09-07.sql` | CARGA (DS \| RIR 2) · RIR 2 · drop sets · 5 días · 5 semanas |
+| `impacto_sascen_rir1_2026-10-12.sql` | IMPACTO (S.ASCEN \| RIR 1) · RIR 1 · series ascendentes · 5 días · 5 semanas |
 
 ### Renombrar en vez de insertar
 
@@ -254,9 +255,17 @@ la serie como fila para un dato que hoy siempre dice lo mismo —la última— s
 pagar una tabla por un texto.
 
 `target_reps` es **texto** justamente para que convivan `'11'`, `'22'`,
-`'11/lado'` y `'fm'` (fallo muscular). `parseTargetReps` saca el primer número,
-así que `'fm'` deja la sugerencia de carga en null: en una serie al fallo no hay
-repetición objetivo que cumplir, y eso es lo correcto, no un hueco.
+`'11/lado'` y `'fm'` (fallo muscular). `parseRepScheme` (`lib/target-reps.ts`)
+saca el primer número, así que `'fm'` deja la sugerencia de carga en null: en
+una serie al fallo no hay repetición objetivo que cumplir, y eso es lo correcto,
+no un hueco.
+
+Las **series ascendentes** (IMPACTO) bajan las repeticiones serie a serie, y
+ahí `target_reps` lleva el esquema entero: `'14-14-12-10'`. Solo cuenta como
+esquema si son números separados por guiones y nada más; cada serie muestra su
+número como placeholder y la sugerencia compara cada serie contra el suyo. Leído
+como un solo número, le exigía 14 repeticiones a la serie de 10 y nunca proponía
+subir carga.
 
 Antes no era así —el seed borraba las tres tablas— y cada fase nueva estrenaba
 un historial vacío, que es justo lo que hace falta para saber si la fase
@@ -266,7 +275,7 @@ catálogo ahora falla en vez de vaciar el historial en silencio.
 
 ### Cuando llegue una fase nueva (AJUSTE 2, 3…)
 
-1. Copiá el seed de la fase vigente (hoy `carga_ds_rir2_2026-09-07.sql`) a un
+1. Copiá el seed de la fase vigente (hoy `impacto_sascen_rir1_2026-10-12.sql`) a un
    archivo nuevo con la fecha de la fase.
 2. Actualizá el catálogo de ejercicios, las filas de rutina, `cardio_plan`
    y la fila de `training_phases` (`name`, `started_on`, `rpe_target`,
