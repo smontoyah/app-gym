@@ -17,7 +17,7 @@ type SetRowProps = {
   unit: WeightUnit;
   /** Qué inputs pinta la fila. */
   mode: TrackingMode;
-  /** Repeticiones objetivo del plan, como placeholder. */
+  /** Repeticiones objetivo de ESTA serie, como placeholder. */
   targetReps: string | null;
   /** RPE objetivo de la fase, como placeholder. */
   targetRpe: string | null;

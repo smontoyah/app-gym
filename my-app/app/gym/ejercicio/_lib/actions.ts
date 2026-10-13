@@ -10,6 +10,7 @@ import {
   usesReps,
   usesWeight,
 } from '@/lib/tracking-mode';
+import { parseRepScheme, repsForSet } from '@/lib/target-reps';
 import type { PreviousSetRow, RoutineWithExercise, TrackingMode } from '@/types/database';
 import { loadWeightUnits } from './unit-prefs';
 import type {
@@ -62,13 +63,17 @@ function parseTargetReps(target: string | null): number | null {
  * Se razona en kg (con el paso de 2,5 kg de las mancuernas) y se devuelve el
  * número, no el texto: quien lo pinta sabe si el ejercicio se está capturando
  * en kg o en lb y lo dice en esa unidad.
+ *
+ * Cada serie se compara contra SU objetivo: en series ascendentes
+ * ('14-14-12-10') la cuarta cumple con 10, no con 14.
  */
 function buildSuggestion(
   previous: PreviousSetRow[],
-  targetReps: number | null,
+  scheme: number[] | null,
   rpeTarget: number | null
 ): LoadSuggestion | undefined {
-  if (previous.length === 0 || targetReps === null) return undefined;
+  if (previous.length === 0 || scheme === null) return undefined;
+  const targetReps = scheme.join('-');
 
   // Quien llama ya filtró por modo 'carga', pero las columnas son nullable: sin
   // este piso, un null se volvería NaN y la sugerencia diría «subí a NaN kg».
@@ -78,7 +83,9 @@ function buildSuggestion(
   const topWeight = Math.max(...weights);
   if (!Number.isFinite(topWeight) || topWeight <= 0) return undefined;
 
-  const hitAllReps = previous.every((p) => p.reps !== null && p.reps >= targetReps);
+  const hitAllReps = previous.every(
+    (p) => p.reps !== null && p.reps >= repsForSet(scheme, p.set_number)
+  );
   const rpes = previous.map((p) => p.rpe).filter((r): r is number => r !== null);
   const avgRpe = rpes.length > 0 ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
   const rpeUnderTarget = rpeTarget === null || avgRpe === null || avgRpe <= rpeTarget;
@@ -212,7 +219,7 @@ export async function fetchDayWorkout(
   const exercises: ExerciseWithSets[] = routines.map((routine) => {
     const savedLogs = (logsRes.data ?? []).filter((l) => l.exercise_id === routine.exercise_id);
     const previous = previousByExercise.get(routine.exercise_id) ?? [];
-    const targetReps = parseTargetReps(routine.target_reps);
+    const repScheme = parseRepScheme(routine.target_reps);
     // En la máquina se lee lo que dice el pin: los kg guardados se muestran en
     // la unidad que se eligió la última vez para este ejercicio.
     const weightUnit = unitByExercise[routine.exercise_id] ?? 'kg';
@@ -255,7 +262,7 @@ export async function fetchDayWorkout(
       weightUnit,
       previousDate: previous[0]?.workout_date,
       // La sugerencia es de CARGA: en un ejercicio sin carga no significa nada.
-      suggestion: mode === 'carga' ? buildSuggestion(previous, targetReps, rpeTarget) : undefined,
+      suggestion: mode === 'carga' ? buildSuggestion(previous, repScheme, rpeTarget) : undefined,
     };
   });
 

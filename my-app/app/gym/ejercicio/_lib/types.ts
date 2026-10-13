@@ -44,7 +44,8 @@ export type SetInput = {
 export type LoadSuggestion = {
   action: 'increase' | 'hold-rpe' | 'hold-reps';
   weightKg: number;
-  targetReps: number;
+  /** '11', o el esquema por serie '14-14-12-10'. */
+  targetReps: string;
 };
 
 export type ExerciseWithSets = RoutineWithExercise & {

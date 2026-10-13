@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/use-theme';
+import { targetForSet } from '@/lib/target-reps';
 import { labelWeight, type WeightUnit } from '@/lib/units';
 import { usesDuration, usesWeight } from '@/lib/tracking-mode';
 import { ExerciseGuideModal } from './exercise-guide-modal';
@@ -165,7 +166,7 @@ export const ExerciseCard = memo(function ExerciseCard({
           exerciseId={exercise.exercise_id}
           unit={exercise.weightUnit}
           mode={tracking_mode}
-          targetReps={exercise.target_reps}
+          targetReps={targetForSet(exercise.target_reps, set.set_number)}
           targetRpe={targetRpe}
           onValueChange={onSetValueChange}
           onSave={onSaveSet}
