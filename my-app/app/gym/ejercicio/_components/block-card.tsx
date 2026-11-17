@@ -16,6 +16,7 @@ type BlockCardProps = {
   onUnitChange: (exerciseId: string, unit: WeightUnit) => void;
   onSaveSet: (exerciseId: string, set: SetInput, unit: WeightUnit) => void;
   onSaveAllSets: (exerciseId: string, sets: SetInput[], unit: WeightUnit) => void;
+  onSaveNote: (exerciseId: string, text: string) => Promise<string | null>;
 };
 
 /**
@@ -30,6 +31,7 @@ export const BlockCard = memo(function BlockCard({
   onUnitChange,
   onSaveSet,
   onSaveAllSets,
+  onSaveNote,
 }: BlockCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -62,6 +64,7 @@ export const BlockCard = memo(function BlockCard({
             onUnitChange={onUnitChange}
             onSaveSet={onSaveSet}
             onSaveAllSets={onSaveAllSets}
+            onSaveNote={onSaveNote}
           />
         </View>
       ))}

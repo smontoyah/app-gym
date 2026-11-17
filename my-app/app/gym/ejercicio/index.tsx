@@ -17,7 +17,7 @@ import {
   todayStr,
 } from '@/lib/date';
 import { convertWeightInput, type WeightUnit } from '@/lib/units';
-import { fetchDayWorkout, saveCardioSession, saveWorkoutSet } from './_lib/actions';
+import { fetchDayWorkout, saveCardioSession, saveWorkoutNote, saveWorkoutSet } from './_lib/actions';
 import { saveWeightUnit } from './_lib/unit-prefs';
 import { BlockCard } from './_components/block-card';
 import { CardioCard } from './_components/cardio-card';
@@ -260,6 +260,24 @@ export default function WorkoutScreen() {
     []
   );
 
+  /**
+   * La nota queda en la fecha que se está viendo, no en la de hoy: así se puede
+   * volver a un día pasado y explicar lo que pasó. Devuelve el error para que
+   * el modal lo muestre sin cerrarse y sin perder lo escrito.
+   */
+  const handleSaveNote = useCallback(
+    async (exerciseId: string, text: string): Promise<string | null> => {
+      const { success, error, note } = await saveWorkoutNote({ exerciseId, dateStr, text });
+      if (!success) return error ?? 'No se pudo guardar la nota.';
+      setWorkout((prev) => ({
+        ...prev,
+        blocks: mapExercise(prev.blocks, exerciseId, (exercise) => ({ ...exercise, dayNote: note })),
+      }));
+      return null;
+    },
+    [dateStr]
+  );
+
   const handleSaveCardio = useCallback(
     async (minutes: string, modality: string | null) => {
       const { success, error } = await saveCardioSession({ dateStr, minutes, modality });
@@ -397,6 +415,7 @@ export default function WorkoutScreen() {
           onUnitChange={handleUnitChange}
           onSaveSet={handleSaveSet}
           onSaveAllSets={handleSaveSets}
+          onSaveNote={handleSaveNote}
         />
       )}
     />

@@ -11,6 +11,7 @@ import {
   usesWeight,
 } from '@/lib/tracking-mode';
 import { parseRepScheme, repsForSet } from '@/lib/target-reps';
+import { parseNote } from '@/lib/workout-notes';
 import type { PreviousSetRow, RoutineWithExercise, TrackingMode } from '@/types/database';
 import { loadWeightUnits } from './unit-prefs';
 import type {
@@ -195,7 +196,7 @@ export async function fetchDayWorkout(
 
   const exerciseIds = routines.map((r) => r.exercise_id);
 
-  const [logsRes, previousRes, unitByExercise] = await Promise.all([
+  const [logsRes, previousRes, unitByExercise, notesRes] = await Promise.all([
     supabase
       .from('workout_logs')
       .select('*')
@@ -203,7 +204,16 @@ export async function fetchDayWorkout(
       .eq('workout_date', dateStr),
     supabase.rpc('previous_sets', { p_before: dateStr, p_exercise_ids: exerciseIds }),
     loadWeightUnits(),
+    supabase
+      .from('workout_notes')
+      .select('exercise_id, note')
+      .eq('user_id', userId)
+      .eq('workout_date', dateStr),
   ]);
+
+  const noteByExercise = new Map<string, string>(
+    (notesRes.data ?? []).map((n) => [n.exercise_id, n.note])
+  );
 
   if (logsRes.error) {
     return { data: { blocks: [], cardio, phase, session: null }, error: logsRes.error.message };
@@ -263,6 +273,7 @@ export async function fetchDayWorkout(
       previousDate: previous[0]?.workout_date,
       // La sugerencia es de CARGA: en un ejercicio sin carga no significa nada.
       suggestion: mode === 'carga' ? buildSuggestion(previous, repScheme, rpeTarget) : undefined,
+      dayNote: noteByExercise.get(routine.exercise_id) ?? null,
     };
   });
 
@@ -271,13 +282,55 @@ export async function fetchDayWorkout(
     cardio.log?.created_at,
   ]);
 
-  // Si `previous_sets` falló, el día se muestra igual: lo que falta es la
-  // referencia de la sesión anterior y la sugerencia de carga. Se devuelve como
-  // error para que la pantalla lo diga en vez de dejarlas ausentes sin motivo.
+  // Si `previous_sets` o las notas fallaron, el día se muestra igual: lo que
+  // falta es la referencia de la sesión anterior, la sugerencia de carga o las
+  // observaciones. Se devuelve como error para que la pantalla lo diga en vez de
+  // dejarlas ausentes sin motivo (una nota que no aparece invita a reescribirla
+  // y pisar la que ya estaba).
   return {
     data: { blocks: groupIntoBlocks(exercises), cardio, phase, session },
-    error: previousRes.error?.message ?? null,
+    error: previousRes.error?.message ?? notesRes.error?.message ?? null,
   };
+}
+
+/**
+ * Guarda la observación de un ejercicio en una fecha, o la borra si el texto
+ * quedó vacío. Devuelve la nota tal como quedó (recortada) para pintarla sin
+ * recargar el día.
+ */
+export async function saveWorkoutNote(params: {
+  exerciseId: string;
+  dateStr: string;
+  text: string;
+}): Promise<{ success: boolean; error: string | null; note: string | null }> {
+  const parsed = parseNote(params.text);
+  if (!parsed.ok) return { success: false, error: parsed.error, note: null };
+
+  const auth = await currentUserId();
+  if (!auth.userId) return { success: false, error: auth.error, note: null };
+
+  if (parsed.note === null) {
+    const { error } = await supabase
+      .from('workout_notes')
+      .delete()
+      .eq('user_id', auth.userId)
+      .eq('exercise_id', params.exerciseId)
+      .eq('workout_date', params.dateStr);
+    if (error) return { success: false, error: error.message, note: null };
+    return { success: true, error: null, note: null };
+  }
+
+  const { error } = await supabase.from('workout_notes').upsert(
+    {
+      user_id: auth.userId,
+      exercise_id: params.exerciseId,
+      workout_date: params.dateStr,
+      note: parsed.note,
+    },
+    { onConflict: 'user_id,workout_date,exercise_id', ignoreDuplicates: false }
+  );
+  if (error) return { success: false, error: error.message, note: null };
+  return { success: true, error: null, note: parsed.note };
 }
 
 /** `loggedAt` es la hora del servidor: con ella se mueve el fin de la jornada. */

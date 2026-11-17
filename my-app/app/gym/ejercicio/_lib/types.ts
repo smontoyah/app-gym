@@ -56,6 +56,12 @@ export type ExerciseWithSets = RoutineWithExercise & {
   previousDate?: string;
   /** Sugerencia de carga derivada de esa sesión previa. */
   suggestion?: LoadSuggestion;
+  /**
+   * Observación de este ejercicio en la fecha que se está viendo (tabla
+   * `workout_notes`). No confundir con `notes`, que es la indicación fija del
+   * entrenador en la rutina.
+   */
+  dayNote: string | null;
 };
 
 /**

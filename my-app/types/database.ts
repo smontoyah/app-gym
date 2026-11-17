@@ -388,6 +388,20 @@ export type BodyWeightLog = {
   created_at: string;
 };
 
+/**
+ * Observación de un ejercicio en una fecha: lo que los números no explican.
+ * Una por ejercicio y día; vaciarla borra el renglón, nunca queda en blanco.
+ */
+export type WorkoutNote = {
+  id: string;
+  user_id: string;
+  exercise_id: string;
+  workout_date: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type RoutineWithExercise = Routine & {
   exercises: Exercise;
 };
@@ -944,6 +958,30 @@ export type Database = {
           note?: string | null;
         };
         Relationships: [];
+      };
+      workout_notes: {
+        Row: WorkoutNote;
+        Insert: {
+          id?: string;
+          user_id: string;
+          exercise_id: string;
+          workout_date: string;
+          note: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          note?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'workout_notes_exercise_id_fkey';
+            columns: ['exercise_id'];
+            isOneToOne: false;
+            referencedRelation: 'exercises';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: {

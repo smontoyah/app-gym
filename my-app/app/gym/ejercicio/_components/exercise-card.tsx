@@ -6,6 +6,7 @@ import { targetForSet } from '@/lib/target-reps';
 import { labelWeight, type WeightUnit } from '@/lib/units';
 import { usesDuration, usesWeight } from '@/lib/tracking-mode';
 import { ExerciseGuideModal } from './exercise-guide-modal';
+import { ExerciseNoteModal } from './exercise-note-modal';
 import { SetRow, type SetField } from './set-row';
 import { WeightUnitToggle } from './weight-unit-toggle';
 import type { ExerciseWithSets, LoadSuggestion, SetInput } from '../_lib/types';
@@ -21,6 +22,8 @@ type ExerciseCardProps = {
   onUnitChange: (exerciseId: string, unit: WeightUnit) => void;
   onSaveSet: (exerciseId: string, set: SetInput, unit: WeightUnit) => void;
   onSaveAllSets: (exerciseId: string, sets: SetInput[], unit: WeightUnit) => void;
+  /** Guarda la observación del día; devuelve el error o null si salió bien. */
+  onSaveNote: (exerciseId: string, text: string) => Promise<string | null>;
 };
 
 /** La sugerencia se calcula en kg y se dice en la unidad que se está usando. */
@@ -44,10 +47,13 @@ export const ExerciseCard = memo(function ExerciseCard({
   onUnitChange,
   onSaveSet,
   onSaveAllSets,
+  onSaveNote,
 }: ExerciseCardProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const hasNote = exercise.dayNote !== null;
 
   const { name, muscle_group, image_url, instructions, tracking_mode } = exercise.exercises;
   // El toggle kg/lb y la sugerencia de carga no significan nada sin carga.
@@ -132,9 +138,29 @@ export const ExerciseCard = memo(function ExerciseCard({
             <Text style={s.chipText}>cadencia {exercise.cadence}</Text>
           </View>
         )}
+        {/* Al final de la fila y chico: se usa poco, pero cuando hace falta
+            tiene que estar a mano sin salir del ejercicio. Resaltado si ya
+            hay una nota ese día. */}
+        <TouchableOpacity
+          style={[s.noteBtn, hasNote && s.noteBtnActive]}
+          onPress={() => setNoteOpen(true)}
+          hitSlop={8}
+          accessibilityLabel={hasNote ? 'Editar observación' : 'Agregar observación'}
+        >
+          <Text style={[s.noteBtnText, hasNote && s.noteBtnTextActive]}>
+            📝 {hasNote ? 'Nota' : 'Obs.'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {exercise.notes && <Text style={s.notes}>{exercise.notes}</Text>}
+      {hasNote && (
+        <TouchableOpacity onPress={() => setNoteOpen(true)} activeOpacity={0.7}>
+          <Text style={s.dayNote} numberOfLines={3}>
+            {exercise.dayNote}
+          </Text>
+        </TouchableOpacity>
+      )}
       {hasLoad && exercise.suggestion && !done && (
         <Text style={s.suggestion}>{suggestionText(exercise.suggestion, exercise.weightUnit)}</Text>
       )}
@@ -206,6 +232,14 @@ export const ExerciseCard = memo(function ExerciseCard({
           instructions={instructions}
         />
       )}
+      {noteOpen && (
+        <ExerciseNoteModal
+          name={name}
+          initialNote={exercise.dayNote}
+          onClose={() => setNoteOpen(false)}
+          onSave={(text) => onSaveNote(exercise.exercise_id, text)}
+        />
+      )}
     </View>
   );
 });
@@ -235,6 +269,27 @@ const createStyles = (c: AppColorScheme) =>
     chip: { backgroundColor: c.accentBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
     chipText: { color: c.accent, fontSize: 12, fontWeight: '700' },
     notes: { color: c.warning, fontSize: 12, marginBottom: 8 },
+    noteBtn: {
+      marginLeft: 'auto',
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    noteBtnActive: { backgroundColor: c.warningBg, borderColor: c.warning },
+    noteBtnText: { color: c.textMuted, fontSize: 12, fontWeight: '600' },
+    noteBtnTextActive: { color: c.warning },
+    dayNote: {
+      color: c.textSecondary,
+      fontSize: 12,
+      fontStyle: 'italic',
+      backgroundColor: c.warningBg,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      marginBottom: 8,
+    },
     suggestion: { color: c.textSecondary, fontSize: 12, fontStyle: 'italic', marginBottom: 8 },
     setsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 6 },
     label: { flex: 1, color: c.textMuted, fontSize: 11, textAlign: 'center' },
