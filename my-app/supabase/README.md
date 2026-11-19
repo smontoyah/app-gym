@@ -225,6 +225,10 @@ catálogo de `exercises` se siembra por upsert y `workout_logs` no se toca.
 | `ajuste1_2026-08-03.sql` | AJUSTE 1 · RPE 7/10 · RIR 3 · super series · 4 días |
 | `carga_ds_rir2_2026-09-07.sql` | CARGA (DS \| RIR 2) · RIR 2 · drop sets · 5 días · 5 semanas |
 | `impacto_sascen_rir1_2026-10-12.sql` | IMPACTO (S.ASCEN \| RIR 1) · RIR 1 · series ascendentes · 5 días · 5 semanas |
+| `culminacion_restpause_rir01_2026-11-16.sql` | CULMINACIÓN (REST P \| RIR 0-1) · RPE 9-10 · rest-pause · 5 días · 5 semanas |
+
+Este último lleva `DELETE` (como todos), y el MCP de Supabase desde VSCode lo
+rechaza: se corre en el SQL Editor del panel o desde `claude` en una terminal.
 
 ### Renombrar en vez de insertar
 
@@ -267,6 +271,23 @@ número como placeholder y la sugerencia compara cada serie contra el suyo. Leí
 como un solo número, le exigía 14 repeticiones a la serie de 10 y nunca proponía
 subir carga.
 
+El **rest-pause** (CULMINACIÓN, «12+fm (P 30s)») sigue la regla del drop set:
+`target_reps` lleva las repeticiones de las series normales (`'12'`, o
+`'16-16-12'` si la última arranca con menos) y la serie rest-pause va en
+`notes` con su pausa, que cambia de un ejercicio a otro. Se anota el total de
+esa serie (12 + las del fallo), así que la sugerencia la da por cumplida.
+
+Las series **por tiempo** («40s») van como `'40s'`. `parseRepScheme` lee una
+duración como sin objetivo de repeticiones: en un ejercicio con carga, leída
+como 40, la sugerencia exigía 40 repeticiones y no proponía subir nunca. Los
+de peso corporal van en modo `'reps'` y no `'tiempo'`: ese modo se escribe en
+minutos (0,67 para 40 s) y con la duración fija lo que progresa son las
+repeticiones que caben en ella.
+
+El RPE de la fase puede ser un rango (`'9-10/10'`). La sugerencia usa el techo
+(`lib/rpe-target.ts`): con la serie rest-pause al fallo por diseño, el piso (9)
+lo pasaba cualquier sesión bien hecha.
+
 Antes no era así —el seed borraba las tres tablas— y cada fase nueva estrenaba
 un historial vacío, que es justo lo que hace falta para saber si la fase
 anterior sirvió. La migración `exercises_never_deleted` cerró esa puerta desde
@@ -275,7 +296,7 @@ catálogo ahora falla en vez de vaciar el historial en silencio.
 
 ### Cuando llegue una fase nueva (AJUSTE 2, 3…)
 
-1. Copiá el seed de la fase vigente (hoy `impacto_sascen_rir1_2026-10-12.sql`) a un
+1. Copiá el seed de la fase vigente (hoy `culminacion_restpause_rir01_2026-11-16.sql`) a un
    archivo nuevo con la fecha de la fase.
 2. Actualizá el catálogo de ejercicios, las filas de rutina, `cardio_plan`
    y la fila de `training_phases` (`name`, `started_on`, `rpe_target`,

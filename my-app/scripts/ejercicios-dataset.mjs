@@ -28,6 +28,34 @@
  * movimiento, y conviene saberlo antes que descubrirlo mirando el gif.
  */
 export const MAPA = {
+  // ══ Fase CULMINACIÓN (REST P | RIR 0-1) — noviembre 2026 ═══════════════════
+  // Ojo: en este PDF varias miniaturas NO son de Gym visual sino de Lyfta (traen
+  // la marca de agua) o fotogramas de videos de Ciro. Ahí no hay dibujo idéntico
+  // que encontrar y se compara el movimiento: máquina, postura y agarre. Por eso
+  // los ya vinculados (pec deck, remos, face pull, pull-over, hacka, zancadas,
+  // press de pecho) dan puntajes bajos contra su gif y aun así están bien.
+  'Sentadilla búlgara con mancuernas': '0410', // dumbbell single leg split squat — pie trasero en el banco y mancuernas, como el PDF (3533 «quads» es sin carga)
+  'Patada sprinter en polea media': '0228', // ≈ cable standing hip extension — la miniatura es un video de Ciro; el dataset no trae la patada sprinter, esta es la extensión de cadera de pie con tobillera
+  'Elevaciones frontales en polea baja (acostado)': '0162', // ≈ cable front raise — de pie; el de Ciro (video) es acostado en la colchoneta. No es «… (de pie)», que es otra fila
+  'Press francés con mancuernas en colchoneta': '0351', // ≈ dumbbell lying triceps extension — en banco; el de Ciro es acostado en el piso
+  'Plancha con elevación de brazo y pierna opuestos': '0803', // ≈ superman push-up — el dibujo más parecido (plancha alta, brazo y pierna opuestos extendidos), pero el gif mete una flexión que acá no va
+  'Chin-up asistido en máquina': '0572', // lever assisted chin-up — la de rodillas, como el PDF (1431 es de pie)
+  'Curl de bíceps en polea baja con cuerda': '0165', // cable hammer curl (with rope)
+  'Crunch con balón suizo': '0271', // ≈ crunch (on stability ball) — con la espalda sobre el balón; el PDF lo dibuja en el piso con las piernas sobre el balón
+  'Rueda abdominal': '0857', // wheel rollerout — ahora sí exacto: desde las rodillas y sin pared (comparte gif con «Ab Rollout con apoyo de pared»)
+  'Remo sentado en polea con agarre estrecho': '0861', // cable seated row — maneral en V, como el PDF
+  'Spider Curl con barra EZ': '0454', // ez barbell spider curl — boca abajo en banco inclinado, como el PDF (1628 es en el predicador)
+  'Abdominales sentado en máquina': '1452', // lever seated crunch — agarrando las manijas sobre los hombros, como el PDF (0595 es con almohadilla al pecho)
+  // Renombrados en este seed (mismo id de `exercises`, mismo historial):
+  // · «Press militar (neutro) con mancuernas sentado» → «Press militar con
+  //   mancuernas en banco inclinado». La miniatura ahora es con agarre PRONO
+  //   (es el fotograma 0 de 3546, que alterna brazos), así que pasa de 0404
+  //   (neutro) a 0405, el mismo press a dos brazos. Ver «Hombro».
+  // · «Abducción de cadera sentado en máquina» → «… en máquina sentado» (0597).
+  // La «Elevación de talón sentado en máquina» de la pierna 1 trae OTRA máquina
+  // (2315 lever rotary calf, piernas extendidas); la de la pierna 2 es 0594. El
+  // PDF las llama igual y en la base es una sola fila, así que queda 0594.
+
   // ══ Fase IMPACTO (S.ASCEN | RIR 1) — octubre 2026 ══════════════════════════
   // Emparejados contra TODOS los fotogramas de cada gif, no solo contra
   // `images/*.jpg`: la miniatura del PDF suele ser otro fotograma de la misma
@@ -66,7 +94,7 @@ export const MAPA = {
   'Leg curl en máquina sentado': '0599', // lever seated leg curl
   'Leg curl en máquina acostado': '0586', // lever lying leg curl
   'Leg curl unilateral de pie en máquina': '0582', // ≈ lever kneeling leg curl — el dataset no trae la versión de pie
-  'Abducción de cadera sentado en máquina': '0597', // lever seated hip abduction
+  'Abducción de cadera en máquina sentado': '0597', // lever seated hip abduction (hasta IMPACTO, «Abducción de cadera sentado en máquina»)
   'Aducción de cadera sentado en máquina': '0598', // lever seated hip adduction
   'Hip Thrust con barra': '1409', // ≈ barbell glute bridge — no hay hip thrust con barra; el puente es desde el piso, no apoyado en banco
   'Elevación de talón sentado en máquina': '0594', // lever seated calf raise
@@ -81,8 +109,9 @@ export const MAPA = {
 
   // ── Hombro ──
   // En IMPACTO se renombraron: eran «Press militar con mancuernas en banco
-  // inclinado» y «Elevaciones laterales con mancuernas».
-  'Press militar (neutro) con mancuernas sentado': '0404', // dumbbell seated shoulder press (parallel grip)
+  // inclinado» y «Elevaciones laterales con mancuernas». En CULMINACIÓN el press
+  // vuelve a su nombre de AJUSTE 1/CARGA y con agarre prono (antes 0404, neutro).
+  'Press militar con mancuernas en banco inclinado': '0405', // dumbbell seated shoulder press
   'Vuelos laterales con mancuernas': '0334', // dumbbell lateral raise
   // El reemplazo que se hizo desde el 14-sep; no sale en ningún PDF, así que no
   // hay miniatura con qué comparar: es la de asiento con discos.
