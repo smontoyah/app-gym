@@ -11,13 +11,19 @@
  * nada de lo que ya había: el entrenador no usa rangos («8-12»). Solo cuenta
  * como esquema si son números separados por guiones y nada más; todo lo demás
  * sigue leyendo el primer número como antes.
+ *
+ * CULMINACIÓN trajo series por TIEMPO ('40s') también en ejercicios con carga
+ * (abdominales en máquina). Ahí no hay repeticiones objetivo: leído como 40, la
+ * sugerencia le exigía 40 repeticiones y no proponía subir nunca.
  */
 
 const SCHEME = /^\s*\d+(?:\s*-\s*\d+)+\s*$/;
+const DURATION = /^\s*\d+\s*(?:s|seg)\s*$/i;
 
-/** '14-14-12-10' → [14, 14, 12, 10] · '11' → [11] · '14/lado' → [14] · 'fm' → null */
+/** '14-14-12-10' → [14, 14, 12, 10] · '11' → [11] · '14/lado' → [14] · 'fm' → null · '40s' → null */
 export function parseRepScheme(target: string | null): number[] | null {
   if (!target) return null;
+  if (DURATION.test(target)) return null;
   if (SCHEME.test(target)) return target.split('-').map((n) => parseInt(n, 10));
   const match = target.match(/\d+/);
   return match ? [parseInt(match[0], 10)] : null;

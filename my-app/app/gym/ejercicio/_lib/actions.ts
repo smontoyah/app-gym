@@ -11,6 +11,7 @@ import {
   usesWeight,
 } from '@/lib/tracking-mode';
 import { parseRepScheme, repsForSet } from '@/lib/target-reps';
+import { rpeCeiling } from '@/lib/rpe-target';
 import { parseNote } from '@/lib/workout-notes';
 import type { PreviousSetRow, RoutineWithExercise, TrackingMode } from '@/types/database';
 import { loadWeightUnits } from './unit-prefs';
@@ -48,13 +49,6 @@ const MAX_REPS = 100;
  * El 0 sí es válido: los ejercicios sin carga se registran así.
  */
 const MAX_WEIGHT_KG = 500;
-
-/** '13' → 13 · '13 c/u' → 13 · '18' → 18 · null → null */
-function parseTargetReps(target: string | null): number | null {
-  if (!target) return null;
-  const match = target.match(/\d+/);
-  return match ? parseInt(match[0], 10) : null;
-}
 
 /**
  * Sugerencia de carga para hoy a partir de la sesión previa.
@@ -186,7 +180,7 @@ export async function fetchDayWorkout(
     log: cardioLogRes.data ?? null,
   };
   const phase = phaseRes.data ?? null;
-  const rpeTarget = phase?.rpe_target ? parseTargetReps(phase.rpe_target) : null;
+  const rpeTarget = rpeCeiling(phase?.rpe_target);
 
   const routines = (routinesRes.data ?? []) as RoutineWithExercise[];
   if (routines.length === 0) {

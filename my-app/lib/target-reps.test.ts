@@ -20,6 +20,12 @@ describe('parseRepScheme', () => {
     expect(parseRepScheme('')).toBeNull();
     expect(parseRepScheme(null)).toBeNull();
   });
+
+  it('una duración no es un objetivo de repeticiones: el abdomen de CULMINACIÓN', () => {
+    expect(parseRepScheme('40s')).toBeNull();
+    expect(parseRepScheme('40 s')).toBeNull();
+    expect(parseRepScheme('30 seg')).toBeNull();
+  });
 });
 
 describe('repsForSet', () => {
@@ -44,6 +50,7 @@ describe('targetForSet', () => {
   it('fuera de un esquema devuelve el texto tal cual', () => {
     expect(targetForSet('14/lado', 2)).toBe('14/lado');
     expect(targetForSet('fm', 1)).toBe('fm');
+    expect(targetForSet('40s', 3)).toBe('40s');
     expect(targetForSet(null, 1)).toBeNull();
   });
 });
