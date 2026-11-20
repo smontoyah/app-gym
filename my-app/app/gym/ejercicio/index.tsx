@@ -23,6 +23,7 @@ import { BlockCard } from './_components/block-card';
 import { CardioCard } from './_components/cardio-card';
 import { PhaseBanner } from './_components/phase-banner';
 import { RestTimer, type RestTarget } from './_components/rest-timer';
+import { RestPauseTimer } from './_components/rest-pause-timer';
 import type { SetField } from './_components/set-row';
 import type {
   DayWorkout,
@@ -126,17 +127,25 @@ export default function WorkoutScreen() {
   // decía «Sin trabajo de fuerza» y parecía que la rutina se había borrado.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rest, setRest] = useState<RestTarget | null>(null);
+  // Cronómetro manual de la pausa del rest-pause; null = detenido.
+  const [pauseStart, setPauseStart] = useState<number | null>(null);
   const [lastSaved, setLastSaved] = useState<{ exerciseId: string; at: number } | null>(null);
   const handledSaveRef = useRef<number | null>(null);
 
   // El descanso se calcula después de que el estado ya tiene la serie marcada
   // como guardada, no dentro del updater (que debe ser puro). El guard por
   // timestamp evita que se reinicie el cronómetro al teclear en otro ejercicio.
+  // Guardar la serie también cierra el rest-pause: la pausa ya pasó y lo que
+  // corre ahora es el descanso entre series.
   useEffect(() => {
     if (!lastSaved || handledSaveRef.current === lastSaved.at) return;
     handledSaveRef.current = lastSaved.at;
     setRest(computeRest(workout.blocks, lastSaved.exerciseId));
+    setPauseStart(null);
   }, [lastSaved, workout.blocks]);
+
+  const restartPause = useCallback(() => setPauseStart(Date.now()), []);
+  const stopPause = useCallback(() => setPauseStart(null), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +160,7 @@ export default function WorkoutScreen() {
   const goToDate = useCallback(
     (next: string) => {
       setRest(null);
+      setPauseStart(null);
       setDateStr(next);
     },
     [setDateStr]
@@ -398,27 +408,35 @@ export default function WorkoutScreen() {
   }
 
   return (
-    <FlatList
-      style={s.container}
-      contentContainerStyle={[s.content, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
-      data={ordered.list}
-      keyExtractor={(block) => block.key}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={header}
-      ListFooterComponent={footer}
-      renderItem={({ item }) => (
-        <BlockCard
-          block={item}
-          current={item.key === ordered.currentKey}
-          targetRpe={targetRpe}
-          onSetValueChange={handleSetValueChange}
-          onUnitChange={handleUnitChange}
-          onSaveSet={handleSaveSet}
-          onSaveAllSets={handleSaveSets}
-          onSaveNote={handleSaveNote}
-        />
+    <View style={s.container}>
+      {/* Fuera de la lista para que no se pierda al bajar a otro ejercicio. */}
+      {progress.total > 0 && (
+        <View style={s.pauseBar}>
+          <RestPauseTimer startedAt={pauseStart} onRestart={restartPause} onStop={stopPause} />
+        </View>
       )}
-    />
+      <FlatList
+        style={s.container}
+        contentContainerStyle={[s.content, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
+        data={ordered.list}
+        keyExtractor={(block) => block.key}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
+        renderItem={({ item }) => (
+          <BlockCard
+            block={item}
+            current={item.key === ordered.currentKey}
+            targetRpe={targetRpe}
+            onSetValueChange={handleSetValueChange}
+            onUnitChange={handleUnitChange}
+            onSaveSet={handleSaveSet}
+            onSaveAllSets={handleSaveSets}
+            onSaveNote={handleSaveNote}
+          />
+        )}
+      />
+    </View>
   );
 }
 
@@ -426,6 +444,7 @@ const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
     content: { padding: 16, paddingBottom: 32 },
+    pauseBar: { paddingHorizontal: 16, paddingTop: 12 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
     errorBox: { backgroundColor: c.warningBg, borderRadius: 12, padding: 14, marginBottom: 12 },
     errorText: { color: c.warning, fontSize: 13, fontWeight: '600' },
