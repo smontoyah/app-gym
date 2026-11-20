@@ -144,8 +144,14 @@ export default function WorkoutScreen() {
     setPauseStart(null);
   }, [lastSaved, workout.blocks]);
 
-  const restartPause = useCallback(() => setPauseStart(Date.now()), []);
+  // Arrancar la pausa del rest-pause es estar ya en la serie: el descanso entre
+  // series terminó, así que se cierra y la barra fija no apila dos cronómetros.
+  const restartPause = useCallback(() => {
+    setRest(null);
+    setPauseStart(Date.now());
+  }, []);
   const stopPause = useCallback(() => setPauseStart(null), []);
+  const stopRest = useCallback(() => setRest(null), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -372,8 +378,6 @@ export default function WorkoutScreen() {
             : `Sesión iniciada ${formatTime(session.start)}`}
         </Text>
       )}
-
-      <RestTimer target={rest} onStop={() => setRest(null)} />
     </>
   );
 
@@ -409,9 +413,11 @@ export default function WorkoutScreen() {
 
   return (
     <View style={s.container}>
-      {/* Fuera de la lista para que no se pierda al bajar a otro ejercicio. */}
+      {/* Los cronómetros van fuera de la lista para que no se pierdan al bajar
+          a otro ejercicio: antes el de descanso subía con el encabezado. */}
       {progress.total > 0 && (
-        <View style={s.pauseBar}>
+        <View style={s.timerBar}>
+          <RestTimer target={rest} onStop={stopRest} />
           <RestPauseTimer startedAt={pauseStart} onRestart={restartPause} onStop={stopPause} />
         </View>
       )}
@@ -444,7 +450,7 @@ const createStyles = (c: AppColorScheme) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
     content: { padding: 16, paddingBottom: 32 },
-    pauseBar: { paddingHorizontal: 16, paddingTop: 12 },
+    timerBar: { paddingHorizontal: 16, paddingTop: 12 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
     errorBox: { backgroundColor: c.warningBg, borderRadius: 12, padding: 14, marginBottom: 12 },
     errorText: { color: c.warning, fontSize: 13, fontWeight: '600' },
