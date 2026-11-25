@@ -70,13 +70,25 @@ viajan en la misma consulta que la pantalla del día ya hacía.
    Dos detalles del método: las miniaturas salen en orden de página y los
    `object ID` que repite `pdfimages -list` confirman el orden (la caminadora es
    el mismo objeto en las cinco páginas donde aparece); y varias miniaturas son
-   fotogramas de los videos del propio entrenador, no del dataset, así que ahí
-   no hay nada que comparar y toca elegir por nombre.
+   fotogramas de los videos del propio entrenador o de Lyfta, no del dataset.
+   Ahí no hay dibujo idéntico, pero igual se compara el movimiento: máquina,
+   postura, agarre y si es a uno o dos brazos. Elegir solo por el nombre es
+   cómo quedaron los vuelos laterales de pie cuando Ciro los hace sentado.
 
    Así se cazó que los dos «Elevación de talón sentado en máquina» del PDF
    (lunes y viernes) traen dibujos de **máquinas distintas** —uno es la de
    sentado con el peso en las rodillas y el otro una prensa de talón—, aunque el
    nombre, las reps, la cadencia y el descanso sean idénticos.
+
+   **Regla: con cada fase nueva se verifican a ojo los gifs de TODOS los
+   ejercicios de la rutina, no solo los nuevos.** Un nombre que ya estaba
+   vinculado puede volver con otra postura o máquina. En CULMINACIÓN se
+   revisaron solo los 12 nuevos, se dieron por buenos los demás y quedaron tres
+   gifs equivocados. El método que funcionó: renderizar las páginas del PDF
+   (`pdftoppm -r 80 -png`) para saber qué miniatura va con qué nombre, y armar
+   una hoja por ejercicio con la miniatura al lado de 6-7 fotogramas repartidos
+   del gif. La miniatura suele ser otro fotograma de la misma animación, no la
+   portada. Se decide mirando las hojas, no con puntajes de similitud.
 2. Agregá la línea a `scripts/ejercicios-dataset.mjs`, con la clave igual al
    nombre exacto en `exercises`.
 3. Corré el script, que convierte la animación a WebP, la sube y actualiza la

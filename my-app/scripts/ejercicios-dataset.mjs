@@ -31,17 +31,26 @@ export const MAPA = {
   // ══ Fase CULMINACIÓN (REST P | RIR 0-1) — noviembre 2026 ═══════════════════
   // Ojo: en este PDF varias miniaturas NO son de Gym visual sino de Lyfta (traen
   // la marca de agua) o fotogramas de videos de Ciro. Ahí no hay dibujo idéntico
-  // que encontrar y se compara el movimiento: máquina, postura y agarre. Por eso
-  // los ya vinculados (pec deck, remos, face pull, pull-over, hacka, zancadas,
-  // press de pecho) dan puntajes bajos contra su gif y aun así están bien.
+  // que encontrar y se compara el movimiento: máquina, postura y agarre.
+  //
+  // Revisado a ojo el 2026-11-25, los 35 de la rutina —nuevos y ya vinculados—,
+  // con una hoja por ejercicio: la miniatura del PDF al lado de 7 fotogramas del
+  // gif. La primera pasada solo miró los nuevos y dio por buenos los demás porque
+  // «dan puntajes bajos y aun así están bien». No alcanza: un nombre que ya
+  // existía puede volver con otra postura, y un ≈ puede estar mal elegido. Había
+  // tres mal: los vuelos laterales (Ciro los hace SENTADO desde IMPACTO y el gif
+  // era de pie), la plancha (0803 es acostado boca abajo, ni siquiera plancha) y
+  // el crunch con balón (0271 apoya la espalda en el balón; el PDF, las piernas).
+  // Pec deck, remos, face pull, pull-over, hacka y press de pecho sí
+  // corresponden; las zancadas, a medias (ver su línea).
   'Sentadilla búlgara con mancuernas': '0410', // dumbbell single leg split squat — pie trasero en el banco y mancuernas, como el PDF (3533 «quads» es sin carga)
   'Patada sprinter en polea media': '0228', // ≈ cable standing hip extension — la miniatura es un video de Ciro; el dataset no trae la patada sprinter, esta es la extensión de cadera de pie con tobillera
   'Elevaciones frontales en polea baja (acostado)': '0162', // ≈ cable front raise — de pie; el de Ciro (video) es acostado en la colchoneta. No es «… (de pie)», que es otra fila
   'Press francés con mancuernas en colchoneta': '0351', // ≈ dumbbell lying triceps extension — en banco; el de Ciro es acostado en el piso
-  'Plancha con elevación de brazo y pierna opuestos': '0803', // ≈ superman push-up — el dibujo más parecido (plancha alta, brazo y pierna opuestos extendidos), pero el gif mete una flexión que acá no va
+  'Plancha con elevación de brazo y pierna opuestos': '3665', // ≈ power point plank — plancha que levanta brazo y pierna opuestos, como el PDF, pero sobre las manos; el PDF apoya el antebrazo. El 0803 que estaba (superman push-up) es acostado boca abajo con una flexión: otro ejercicio
   'Chin-up asistido en máquina': '0572', // lever assisted chin-up — la de rodillas, como el PDF (1431 es de pie)
   'Curl de bíceps en polea baja con cuerda': '0165', // cable hammer curl (with rope)
-  'Crunch con balón suizo': '0271', // ≈ crunch (on stability ball) — con la espalda sobre el balón; el PDF lo dibuja en el piso con las piernas sobre el balón
+  'Crunch con balón suizo': '0871', // ≈ tuck crunch — en el piso con cadera y rodillas a 90°, la postura del PDF, pero sin el balón bajo las pantorrillas y con las manos al pecho. El 0271 que estaba apoya la ESPALDA en el balón: otro ejercicio
   'Rueda abdominal': '0857', // wheel rollerout — ahora sí exacto: desde las rodillas y sin pared (comparte gif con «Ab Rollout con apoyo de pared»)
   'Remo sentado en polea con agarre estrecho': '0861', // cable seated row — maneral en V, como el PDF
   'Spider Curl con barra EZ': '0454', // ez barbell spider curl — boca abajo en banco inclinado, como el PDF (1628 es en el predicador)
@@ -89,7 +98,7 @@ export const MAPA = {
   // ── Pierna ──
   'Sentadilla hacka en máquina': '0743', // sled hack squat
   'Prensa de piernas inclinada': '0739', // sled 45° leg press
-  'Zancadas con mancuernas en movimiento': '0336', // dumbbell lunge (en movimiento)
+  'Zancadas con mancuernas en movimiento': '0336', // ≈ dumbbell lunge — con mancuernas, pero da el paso adelante y vuelve; el PDF es caminando. 1460 «walking lunge» sí avanza, pero sin peso
   'Extensión de rodilla sentado en máquina': '0585', // lever leg extension
   'Leg curl en máquina sentado': '0599', // lever seated leg curl
   'Leg curl en máquina acostado': '0586', // lever lying leg curl
@@ -112,7 +121,10 @@ export const MAPA = {
   // inclinado» y «Elevaciones laterales con mancuernas». En CULMINACIÓN el press
   // vuelve a su nombre de AJUSTE 1/CARGA y con agarre prono (antes 0404, neutro).
   'Press militar con mancuernas en banco inclinado': '0405', // dumbbell seated shoulder press
-  'Vuelos laterales con mancuernas': '0334', // dumbbell lateral raise
+  // Los vuelos laterales eran de pie en CARGA (el dibujo de 0334), pero desde
+  // IMPACTO la miniatura es un video de Ciro SENTADO en la punta de un banco
+  // plano. Manda la rutina vigente.
+  'Vuelos laterales con mancuernas': '0396', // dumbbell seated lateral raise — sentado en banco plano sin respaldo, como el video (0395 es con respaldo; 2317, inclinado hacia adelante)
   // El reemplazo que se hizo desde el 14-sep; no sale en ningún PDF, así que no
   // hay miniatura con qué comparar: es la de asiento con discos.
   'Press militar en máquina': '0587', // lever military press
@@ -130,7 +142,7 @@ export const MAPA = {
   'Pull down (neutro) en polea': '2616', // cable lateral pulldown with v-bar
   'Lat Pulldown': '0198', // cable pulldown (agarre ancho pronado)
   'Remo (neutro) en máquina': '1350', // lever seated row
-  'Pull-over con cuerda en polea': '0237', // cable straight arm pulldown (with rope)
+  'Pull-over con cuerda en polea': '0237', // cable straight arm pulldown (with rope) — el PDF (desde IMPACTO) inclina más el torso; el dataset no trae esa variante
 
   // ── Brazo ──
   'Extensión de codo en polea alta con barra': '0201', // cable pushdown
