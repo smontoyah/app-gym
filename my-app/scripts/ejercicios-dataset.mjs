@@ -62,8 +62,9 @@ export const MAPA = {
   //   (neutro) a 0405, el mismo press a dos brazos. Ver «Hombro».
   // · «Abducción de cadera sentado en máquina» → «… en máquina sentado» (0597).
   // La «Elevación de talón sentado en máquina» de la pierna 1 trae OTRA máquina
-  // (2315 lever rotary calf, piernas extendidas); la de la pierna 2 es 0594. El
-  // PDF las llama igual y en la base es una sola fila, así que queda 0594.
+  // que la de la pierna 2 (0594), aunque el PDF las llame igual. Desde el
+  // 2026-11-25 son dos filas, cada una con su carga; ver el seed de CULMINACIÓN.
+  'Elevación de talón sentado en máquina (piernas extendidas)': '2315', // lever rotary calf — sentado con las piernas estiradas y los pies en la plataforma del cable, el dibujo exacto del PDF
 
   // ══ Fase IMPACTO (S.ASCEN | RIR 1) — octubre 2026 ══════════════════════════
   // Emparejados contra TODOS los fotogramas de cada gif, no solo contra
@@ -106,7 +107,7 @@ export const MAPA = {
   'Abducción de cadera en máquina sentado': '0597', // lever seated hip abduction (hasta IMPACTO, «Abducción de cadera sentado en máquina»)
   'Aducción de cadera sentado en máquina': '0598', // lever seated hip adduction
   'Hip Thrust con barra': '1409', // ≈ barbell glute bridge — no hay hip thrust con barra; el puente es desde el piso, no apoyado en banco
-  'Elevación de talón sentado en máquina': '0594', // lever seated calf raise
+  'Elevación de talón sentado en máquina': '0594', // lever seated calf raise — el peso sobre las rodillas (pierna 2 de CULMINACIÓN)
   'Extensión de columna en banco a 45°': '0489', // hyperextension (el de 15° era 0488, sobre banco plano)
 
   // ── Pecho ──
@@ -189,9 +190,6 @@ export const MAPA = {
  * en píxeles del original) para quitar el blanco de los dibujos o centrar una
  * foto; sin él va la imagen entera. Después se lleva a un cuadrado blanco, como
  * los gifs.
- *
- * La «Elevación de talón sentado en máquina» del miércoles no va acá: es la
- * misma fila que la del viernes, que con 0594 es exacta.
  */
 const CULMINACION = 'CULMINACIÓN  RIR 0-1  REST PAUSE - Sebastian Montoya - NOVIEMBRE 18 DEL 2026.pdf';
 

@@ -69,8 +69,14 @@ update public.exercises e set name = v.nuevo
       where x.user_id = e.user_id and lower(x.name) = lower(v.nuevo)
    );
 
--- ── 3) Catálogo: los 34 ejercicios de esta fase ─────────────────────────────
--- (35 filas de rutina: la elevación de talón sale en las dos piernas.)
+-- ── 3) Catálogo: los 35 ejercicios de esta fase ─────────────────────────────
+-- El PDF llama igual a las dos elevaciones de talón, pero son máquinas
+-- distintas: la de pierna 1 es con las piernas extendidas y los pies en una
+-- plataforma (2315), y la de pierna 2, la de siempre con el peso sobre las
+-- rodillas (0594). Van en filas separadas porque cada máquina tiene su carga, y
+-- con una sola fila la sugerencia mezclaba las dos. Separadas el 2026-11-25:
+-- la sesión del lunes 23-nov (4×22 con 30 kg, ya en la de piernas extendidas)
+-- pasó a la fila nueva; lo anterior quedó en la de siempre.
 -- Nombres del PDF con las tildes corregidas («maquina», «talon», «biceps») y
 -- la errata «opuestoos». Donde el PDF solo cambia mayúsculas contra uno que ya
 -- existe («Leg Curl en máquina sentado») se deja el nombre de la base.
@@ -112,6 +118,7 @@ from (values
   ('Leg curl en máquina sentado',                      'Isquiotibiales',     'carga'),
   ('Leg curl en máquina acostado',                     'Isquiotibiales',     'carga'),
   ('Elevación de talón sentado en máquina',            'Pantorrilla',        'carga'),
+  ('Elevación de talón sentado en máquina (piernas extendidas)', 'Pantorrilla', 'carga'),
   ('Extensión de columna en banco a 45°',              'Lumbares',           'carga'),
   -- Pecho
   ('Press de banca inclinado con mancuernas',          'Pecho',              'carga'),
@@ -183,7 +190,7 @@ from (values
   (3, 2, 'Extensión de rodilla sentado en máquina',          3, '12',        90, null,       null,       'Rest-pause en la última: 12 + pausa 15 s + al fallo (anota el total)'),
   (3, 3, 'Patada sprinter en polea media',                   3, '16/lado',   90, null,       null,       'Unilateral · 30 s entre lados'),
   (3, 4, 'Leg curl en máquina sentado',                      4, '12',        90, '1-0-3',    null,       'Rest-pause en la última: 12 + pausa 15 s + al fallo (anota el total)'),
-  (3, 5, 'Elevación de talón sentado en máquina',            4, '22',        90, '1-1-4',    null,       'Rest-pause en la última: 22 + pausa 15 s + al fallo (anota el total)'),
+  (3, 5, 'Elevación de talón sentado en máquina (piernas extendidas)', 4, '22',        90, '1-1-4',    null,       'Rest-pause en la última: 22 + pausa 15 s + al fallo (anota el total)'),
   (3, 6, 'Extensión de columna en banco a 45°',              3, '12',        60, '2-4-2',    null,       null),
   -- ── JUEVES · TORSO JALONES ──
   (4, 0, 'Chin-up asistido en máquina',                      3, 'fm',       120, null,       null,       'Todas al fallo · la carga es el contrapeso: menos kg = más difícil'),
