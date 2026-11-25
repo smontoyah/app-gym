@@ -174,3 +174,34 @@ export const MAPA = {
   // en el catálogo»: es esperable, no un error del mapa.
   'Peso muerto': '0032', // barbell deadlift
 };
+
+/**
+ * Los ≈ que muestran la miniatura del PDF en vez del gif aproximado.
+ *
+ * Un gif de otra variante (de pie cuando es acostado, a dos brazos cuando es a
+ * uno) enseña el movimiento equivocado justo cuando uno lo mira para
+ * ejecutarlo. La miniatura del PDF es exacta aunque esté quieta, así que gana.
+ * El `dataset_id` y los pasos siguen saliendo de `MAPA`: el vínculo con el
+ * dataset no cambia, solo la imagen.
+ *
+ * `imagen` es el sufijo `PPP-NNN` que pone `pdfimages -p` (página y número de
+ * imagen en todo el PDF). `recorte` es el `crop` de ffmpeg (`ancho:alto:x:y`
+ * en píxeles del original) para quitar el blanco de los dibujos o centrar una
+ * foto; sin él va la imagen entera. Después se lleva a un cuadrado blanco, como
+ * los gifs.
+ *
+ * La «Elevación de talón sentado en máquina» del miércoles no va acá: es la
+ * misma fila que la del viernes, que con 0594 es exacta.
+ */
+const CULMINACION = 'CULMINACIÓN  RIR 0-1  REST PAUSE - Sebastian Montoya - NOVIEMBRE 18 DEL 2026.pdf';
+
+export const MINIATURAS = {
+  'Patada sprinter en polea media': { pdf: CULMINACION, imagen: '001-008' }, // video de Ciro, rodilla arriba sobre el escalón
+  'Elevaciones frontales en polea baja (acostado)': { pdf: CULMINACION, imagen: '003-021' }, // video de Ciro, acostado en la colchoneta
+  'Press francés con mancuernas en colchoneta': { pdf: CULMINACION, imagen: '003-024', recorte: '597:394:158:136' }, // dibujo de Lyfta, en el piso
+  'Plancha con elevación de brazo y pierna opuestos': { pdf: CULMINACION, imagen: '003-025', recorte: '451:127:16:89' }, // sobre el antebrazo
+  'Crunch con balón suizo': { pdf: CULMINACION, imagen: '005-039', recorte: '1121:565:411:255' }, // pantorrillas sobre el balón
+  'Hip Thrust con barra': { pdf: CULMINACION, imagen: '005-043', recorte: '1122:749:432:190' }, // espalda apoyada en el banco
+  'Zancadas con mancuernas en movimiento': { pdf: CULMINACION, imagen: '005-044', recorte: '250:440:245:45' }, // dibujo de Lyfta, caminando
+  'Rear delt unilateral en polea': { pdf: CULMINACION, imagen: '007-058', recorte: '720:720:265:0' }, // video de Ciro, a un brazo
+};

@@ -89,6 +89,14 @@ viajan en la misma consulta que la pantalla del día ya hacía.
    una hoja por ejercicio con la miniatura al lado de 6-7 fotogramas repartidos
    del gif. La miniatura suele ser otro fotograma de la misma animación, no la
    portada. Se decide mirando las hojas, no con puntajes de similitud.
+
+   **Si el dataset no trae la variante exacta (los ≈), la app muestra la
+   miniatura del PDF en vez del gif aproximado.** Se anota en `MINIATURAS`
+   (`scripts/ejercicios-dataset.mjs`) con la imagen de `pdfimages -p` y un
+   recorte opcional, y el script la extrae del PDF, la lleva a un cuadrado
+   blanco de 360 y la sube a `pdf/<ejercicio>-<hash>.webp`. El `dataset_id` y
+   los pasos siguen viniendo del dataset. La app reconoce el prefijo `pdf/` y
+   cambia el crédito por «Imagen del plan del entrenador».
 2. Agregá la línea a `scripts/ejercicios-dataset.mjs`, con la clave igual al
    nombre exacto en `exercises`.
 3. Corré el script, que convierte la animación a WebP, la sube y actualiza la

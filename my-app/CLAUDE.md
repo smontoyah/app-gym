@@ -11,8 +11,9 @@ es a uno o dos brazos y el patrón de movimiento, mirando las imágenes y no
 puntajes de similitud.
 
 - Si un gif no corresponde, se corrige en `scripts/ejercicios-dataset.mjs`.
-- Si no hay equivalente exacto, se marca con `≈` y se anota en qué difiere, o
-  se deja sin vincular.
+- Si no hay equivalente exacto, se marca con `≈`, se anota en qué difiere y se
+  agrega a `MINIATURAS` para que la app muestre la miniatura del PDF en vez
+  del gif aproximado.
 - Después se corre `scripts/vincular-ejercicios.mjs`, y un `--dry-run` tiene
   que dar 0 pendientes.
 

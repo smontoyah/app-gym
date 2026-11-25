@@ -16,7 +16,9 @@
  * cuesta lo que ese ejercicio nuevo. Con --dry-run no toca ni storage ni base.
  *
  * Requiere ffmpeg (`ffmpeg -version`) y el dataset clonado. Si el dataset está
- * en otro lado, pasá DATASET_DIR.
+ * en otro lado, pasá DATASET_DIR. Los ejercicios de `MINIATURAS` usan en vez
+ * del gif la miniatura del PDF del entrenador: para esos hacen falta además
+ * `pdfimages` (poppler-utils) y los PDF en PDF_DIR.
  *
  * La media es © Gym visual (https://gymvisual.com/) y se usa a 180×180 con la
  * atribución a la vista en la app, como pide su NOTICE. No se versiona en este
@@ -24,17 +26,21 @@
  * dataset local de quien lo corra.
  */
 import { createClient } from '@supabase/supabase-js';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, readdir, mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MAPA } from './ejercicios-dataset.mjs';
+import { MAPA, MINIATURAS } from './ejercicios-dataset.mjs';
 
 const ejecutar = promisify(execFile);
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const DATASET = process.env.DATASET_DIR ?? '/home/sebastian/Documentos/valtross_2026/exercises-dataset';
+// Donde viven los PDF del entrenador, para las `MINIATURAS`. Tampoco se
+// versionan: traen fotogramas de sus videos.
+const PDF_DIR = process.env.PDF_DIR ?? '/home/sebastian/Documentos/Vault/02 - Areas/Fitness';
 const BUCKET = 'exercises';
 const DRY = process.argv.includes('--dry-run');
 
@@ -47,6 +53,49 @@ const DRY = process.argv.includes('--dry-run');
  * framerate constante reescribe ese ritmo y agrega frames que no existían.
  */
 const CALIDAD_WEBP = '75';
+
+/**
+ * Lado del cuadrado de las miniaturas del PDF. El doble que los gifs: la app
+ * las muestra a 240 y varias son fotos, que a 180 se lavan. Quietas pesan
+ * menos de 10 KB igual.
+ */
+const LADO_MINIATURA = 360;
+
+/**
+ * Ruta en el bucket de una miniatura del PDF. El hash de lo que la define va en
+ * el nombre porque `expo-image` cachea por URL para siempre: si cambia el
+ * recorte y la ruta no, el teléfono sigue mostrando la vieja. La app reconoce
+ * estas imágenes por el prefijo `pdf/` para no atribuírselas a Gym visual.
+ */
+function rutaMiniatura(nombre, mini) {
+  const slug = nombre
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const hash = createHash('sha1')
+    .update(JSON.stringify([mini.pdf, mini.imagen, mini.recorte ?? '', LADO_MINIATURA, CALIDAD_WEBP]))
+    .digest('hex')
+    .slice(0, 8);
+  return `pdf/${slug}-${hash}.webp`;
+}
+
+// Cada PDF se extrae una sola vez por corrida, y solo si algún ejercicio que lo
+// usa cambió: casi siempre no hace falta abrirlo.
+const extraidos = new Map();
+async function imagenDelPdf(trabajo, mini) {
+  if (!extraidos.has(mini.pdf)) {
+    const dir = path.join(trabajo, `pdf-${extraidos.size}`);
+    await mkdir(dir);
+    await ejecutar('pdfimages', ['-j', '-p', path.join(PDF_DIR, mini.pdf), path.join(dir, 'im')]);
+    extraidos.set(mini.pdf, { dir, archivos: await readdir(dir) });
+  }
+  const { dir, archivos } = extraidos.get(mini.pdf);
+  const archivo = archivos.find((a) => a.startsWith(`im-${mini.imagen}.`));
+  if (!archivo) throw new Error(`no hay imagen ${mini.imagen} en «${mini.pdf}»`);
+  return path.join(dir, archivo);
+}
 
 // La url y la llave anónima ya viven en lib/supabase.ts. Se leen de ahí en vez
 // de duplicarlas acá, así este script no queda desincronizado si el proyecto cambia.
@@ -131,7 +180,8 @@ try {
       continue;
     }
 
-    const ruta = `${datasetId}.webp`;
+    const mini = MINIATURAS[nombre];
+    const ruta = mini ? rutaMiniatura(nombre, mini) : `${datasetId}.webp`;
     const { data: publica } = sb.storage.from(BUCKET).getPublicUrl(ruta);
     const pasos = registro.instruction_steps.es;
     const yaEsta =
@@ -144,22 +194,35 @@ try {
       continue;
     }
     if (DRY) {
-      console.log(`  [dry] ${nombre} → ${datasetId} ${registro.name} (${pasos.length} pasos)`);
+      const imagen = mini ? ` · miniatura ${mini.imagen} del PDF` : '';
+      console.log(`  [dry] ${nombre} → ${datasetId} ${registro.name} (${pasos.length} pasos)${imagen}`);
       vinculados++;
       continue;
     }
 
-    const destino = path.join(trabajo, ruta);
+    const destino = path.join(trabajo, path.basename(ruta));
     try {
-      await ejecutar('ffmpeg', [
-        '-loglevel', 'error', '-y',
-        '-i', path.join(DATASET, registro.gif_url),
-        '-vcodec', 'libwebp', '-lossless', '0', '-q:v', CALIDAD_WEBP,
-        '-loop', '0', '-an',
-        destino,
-      ]);
+      if (mini) {
+        const recorte = mini.recorte ? `crop=${mini.recorte},` : '';
+        const L = LADO_MINIATURA;
+        await ejecutar('ffmpeg', [
+          '-loglevel', 'error', '-y',
+          '-i', await imagenDelPdf(trabajo, mini),
+          '-vf', `${recorte}scale=${L}:${L}:force_original_aspect_ratio=decrease,pad=${L}:${L}:(ow-iw)/2:(oh-ih)/2:color=white`,
+          '-vcodec', 'libwebp', '-q:v', CALIDAD_WEBP,
+          destino,
+        ]);
+      } else {
+        await ejecutar('ffmpeg', [
+          '-loglevel', 'error', '-y',
+          '-i', path.join(DATASET, registro.gif_url),
+          '-vcodec', 'libwebp', '-lossless', '0', '-q:v', CALIDAD_WEBP,
+          '-loop', '0', '-an',
+          destino,
+        ]);
+      }
     } catch (e) {
-      fallos.push(`${nombre}: ffmpeg — ${e.message.split('\n')[0]}`);
+      fallos.push(`${nombre}: ${mini ? 'miniatura' : 'ffmpeg'} — ${e.message.split('\n')[0]}`);
       continue;
     }
 
@@ -184,7 +247,8 @@ try {
     }
 
     vinculados++;
-    console.log(`  ✓ ${nombre} → ${registro.name} · ${Math.round(bytes.length / 1024)} KB`);
+    const imagen = mini ? ` · miniatura ${mini.imagen} del PDF` : '';
+    console.log(`  ✓ ${nombre} → ${registro.name}${imagen} · ${Math.round(bytes.length / 1024)} KB`);
   }
 } finally {
   await rm(trabajo, { recursive: true, force: true });

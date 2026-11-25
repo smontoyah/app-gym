@@ -32,6 +32,10 @@ export const ExerciseGuideModal = memo(function ExerciseGuideModal({
 }: ExerciseGuideModalProps) {
   const { colors } = useTheme();
   const s = useMemo(() => createStyles(colors), [colors]);
+  // Las de `pdf/` son la miniatura del plan del entrenador, no un gif del
+  // dataset (ver `MINIATURAS` en scripts/ejercicios-dataset.mjs): fotos de sus
+  // videos o dibujos de otras fuentes, así que no llevan el crédito de Gym visual.
+  const delPlan = imageUrl?.includes('/exercises/pdf/') ?? false;
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -57,7 +61,7 @@ export const ExerciseGuideModal = memo(function ExerciseGuideModal({
                 contentFit="contain"
                 cachePolicy="memory-disk"
                 transition={150}
-                accessibilityLabel={`Animación de ${name}`}
+                accessibilityLabel={`${delPlan ? 'Imagen' : 'Animación'} de ${name}`}
               />
             </View>
           )}
@@ -71,7 +75,9 @@ export const ExerciseGuideModal = memo(function ExerciseGuideModal({
 
           {/* Condición del NOTICE del dataset: la media se usa a 180×180 y con
               la atribución a la vista. */}
-          <Text style={s.credit}>Ilustración © Gym visual — gymvisual.com</Text>
+          <Text style={s.credit}>
+            {delPlan ? 'Imagen del plan del entrenador' : 'Ilustración © Gym visual — gymvisual.com'}
+          </Text>
         </ScrollView>
       </View>
     </Modal>
